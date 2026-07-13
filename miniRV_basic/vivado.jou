@@ -13,3 +13,15 @@
 #-----------------------------------------------------------
 start_gui
 open_project F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.xpr
+update_compile_order -fileset sources_1
+generate_target all [get_files F:/file/workspace/verilog/cpu_design/miniRV_basic/src/rtl/ip/clk_wiz_0/clk_wiz_0.xci]
+export_ip_user_files -of_objects [get_files F:/file/workspace/verilog/cpu_design/miniRV_basic/src/rtl/ip/clk_wiz_0/clk_wiz_0.xci] -no_script -sync -force -quiet
+export_simulation -of_objects [get_files F:/file/workspace/verilog/cpu_design/miniRV_basic/src/rtl/ip/clk_wiz_0/clk_wiz_0.xci] -directory F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.ip_user_files/sim_scripts -ip_user_files_dir F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.ip_user_files -ipstatic_source_dir F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.ip_user_files/ipstatic -lib_map_path [list {modelsim=F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.cache/compile_simlib/modelsim} {questa=F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.cache/compile_simlib/questa} {riviera=F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.cache/compile_simlib/riviera} {activehdl=F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.cache/compile_simlib/activehdl}] -use_ip_compiled_libs -force -quiet
+launch_run clk_wiz_0_synth_1
+wait_on_run clk_wiz_0_synth_1
+
+launch_simulation
+open_wave_config F:/file/workspace/verilog/cpu_design/miniRV_basic/soc_simple_tb.wcfg
+source soc_simple_tb.tcl
+run all
+close_sim
