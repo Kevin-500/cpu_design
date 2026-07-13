@@ -1,0 +1,16 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:14:34 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Mon Jul 13 09:06:04 2026
+# Process ID: 19104
+# Current directory: F:/file/workspace/verilog/cpu_design/miniRV_basic
+# Command line: vivado.exe -gui_launcher_event rodinguilauncherevent21148 F:\file\workspace\verilog\cpu_design\miniRV_basic\miniRV.xpr
+# Log file: F:/file/workspace/verilog/cpu_design/miniRV_basic/vivado.log
+# Journal file: F:/file/workspace/verilog/cpu_design/miniRV_basic\vivado.jou
+# Running On: KevinsLaptop, OS: Windows, CPU Frequency: 2495 MHz, CPU Physical cores: 32, Host memory: 34024 MB
+#-----------------------------------------------------------
+start_gui
+open_project F:/file/workspace/verilog/cpu_design/miniRV_basic/miniRV.xpr
+update_compile_order -fileset sources_1
