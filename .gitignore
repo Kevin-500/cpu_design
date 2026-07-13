@@ -3,4 +3,8 @@ miniRV_basic/vivado_19104.backup.log
 miniRV_basic/vivado.jou
 miniRV_basic/vivado.log
 miniRV_basic/vivado_pid46756.str
-miniRV_basic/miniRV.cache/wt/project.wpc
+miniRV_basic/miniRV.cache/
+miniRV_basic/miniRV.gen/
+miniRV_basic/miniRV.ip_user_files/
+miniRV_basic/miniRV.runs/
+miniRV_basic/miniRV.sim/
