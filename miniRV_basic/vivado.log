@@ -523,3 +523,5 @@ Test Passed!
 $finish called at time : 11480100 ps : File "F:/file/workspace/verilog/cpu_design/miniRV_basic/src/sim/soc_simple_tb.v" Line 22
 close_sim
 INFO: [Simtcl 6-16] Simulation closed
+exit
+INFO: [Common 17-206] Exiting Vivado at Mon Jul 13 19:39:51 2026...

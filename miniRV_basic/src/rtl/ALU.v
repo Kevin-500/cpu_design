@@ -26,6 +26,8 @@ module ALU (
     always @(*) begin
         case (op_r != 4'h0 ? op_r : op)
             `ALU_ADD  : c = a + b;
+            `ALU_SUB  : c = a - b;
+            `ALU_AND  : c = a & b;
             `ALU_OR   : c = a | b;
             `ALU_SLL  : c = a << b[4:0];
             default   : c = 32'h0;
@@ -35,17 +37,17 @@ module ALU (
     always @(*) begin
         case (op)
             `ALU_EQ : br = a == b;
-            `ALU_NE : br = a != b;
+            `ALU_LT : br = a < b;
+            `ALU_LTU: br = ({1'b0, a} < {1'b0, b});
             default : br = 1'b0;
         endcase
     end
 
-    assign mul_flag  = 1'b0;
-    assign mulu_flag = 1'b0;
-    assign div_flag  = 1'b0;
-    assign divu_flag = 1'b0;
-    // assign busy      = mul_busy | mulu_busy | div_busy | divu_busy;
-    assign busy      = 1'b0;
+    assign mul_flag  = (op == `ALU_MUL | op == `ALU_MULH);
+    assign mulu_flag = op == `ALU_MULHU;
+    assign div_flag  = (op == `ALU_DIV | op == `ALU_REM);
+    assign divu_flag = (op == `ALU_DIVU | op == `ALU_REMU);
+    assign busy      = mul_busy | mulu_busy | div_busy | divu_busy;
 
     always @(posedge clk) begin
         if (mul_flag | mulu_flag | div_flag | divu_flag)

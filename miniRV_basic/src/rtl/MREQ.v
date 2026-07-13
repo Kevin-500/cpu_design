@@ -50,8 +50,9 @@ module MREQ (
                 
                 default    : da_ren = (offset == 2'h0) ? 4'hF : 4'h0;                       // lw
             endcase
-        end else
+        end else begin
             da_ren = 4'h0;
+        end
     end
 
 endmodule

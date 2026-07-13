@@ -62,6 +62,7 @@ module cpu_core(
     wire [31:0] alu_c;
     reg  [31:0] alu_c_r;
     wire        br;
+    wire        n_br;
     wire        mul_div_busy;
     
     // Memory Access
@@ -124,7 +125,8 @@ module cpu_core(
         .ram_r_op       (ram_rop),
         .ram_w_op       (ram_wop),
         .rf_we          (rf_we),
-        .rf_wsel        (rf_wsel)
+        .rf_wsel        (rf_wsel),
+        .n_br           (n_br)
     );
 
     RF U_RF (
@@ -175,7 +177,7 @@ module cpu_core(
         .op         (alu_op),
         .a          (alu_a),
         .b          (alu_b),
-        .br         (br),
+        .br         (br ^ n_br), //判断是否需要对br取反
         .c          (alu_c),
         .busy       (mul_div_busy)
     );

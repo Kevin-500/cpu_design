@@ -16,7 +16,8 @@ module Controller (
     output wire [ 2:0]  ram_r_op,
     output wire [ 3:0]  ram_w_op,
     output wire         rf_we,
-    output wire [ 1:0]  rf_wsel
+    output wire [ 1:0]  rf_wsel,
+    output wire         n_br //br需要取反
 );
 
     wire ADDI  = (opcode == 7'b0010011) && (funct3 == 3'b000);
@@ -127,6 +128,8 @@ module Controller (
     assign alua_sel = ALU_A_SEL_PC & `ALU_A_PC | ALU_A_SEL_RS1 & `ALU_A_RS1;
 
     assign alub_sel = ALU_B_SEL_RS2 & `ALU_B_RS2 | ALU_B_SEL_EXT & `ALU_B_EXT;
+
+    assign n_br = BNE | BGE | BGEU; // 仅实现BEQ,BLT,BLTU,其他比较用取反实现.
   
     assign ram_r_op = {3{RAM_EXT_B }} & `RAM_EXT_B
                     | {3{RAM_EXT_BU}} & `RAM_EXT_BU
