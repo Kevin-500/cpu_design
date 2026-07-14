@@ -91,7 +91,7 @@ module cpu_core(
         .op         (npc_op),
         .pc         (pc),
         .offset     (ext),
-        .br         (br),
+        .br         (br ^ n_br), //判断是否需要对br进行取反
         .npc        (npc),
         .pc4        (pc4)
     );
@@ -177,7 +177,7 @@ module cpu_core(
         .op         (alu_op),
         .a          (alu_a),
         .b          (alu_b),
-        .br         (br ^ n_br), //判断是否需要对br取反
+        .br         (br),
         .c          (alu_c),
         .busy       (mul_div_busy)
     );

@@ -29,15 +29,24 @@ module ALU (
             `ALU_SUB  : c = a - b;
             `ALU_AND  : c = a & b;
             `ALU_OR   : c = a | b;
+            `ALU_DIV  : c = busy ? 32'h0 : div_quo;//未验算,纯直觉写的
+            `ALU_DIVU : c = busy ? 32'h0 : divu_quo;
+            `ALU_REM  : c = busy ? 32'h0 : div_rem;
+            `ALU_REMU : c = busy ? 32'h0 : divu_rem;
             `ALU_SLL  : c = a << b[4:0];
+            `ALU_MUL  : c = busy ? 32'h0 : mul_res[31:0];
+            `ALU_MULH : c = busy ? 32'h0 : mul_res[63:32];
+            `ALU_MULHU: c = busy ? 32'h0 : mulu_res[63:32];
+            `ALU_LT   : c = (a < b);
+            `ALU_LTU  : c = ({1'b0, a} < {1'b0, b});
             default   : c = 32'h0;
         endcase
     end
 
     always @(*) begin
         case (op)
-            `ALU_EQ : br = a == b;
-            `ALU_LT : br = a < b;
+            `ALU_EQ : br = (a == b);
+            `ALU_LT : br = (a < b);
             `ALU_LTU: br = ({1'b0, a} < {1'b0, b});
             default : br = 1'b0;
         endcase

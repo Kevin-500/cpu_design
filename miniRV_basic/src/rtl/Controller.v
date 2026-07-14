@@ -71,13 +71,23 @@ module Controller (
     wire EXT_OP_U = LUI;
     wire EXT_OP_J = JAL;
     
-    // alu_op标签暂时未修改,对乘除法的理解不太清楚
     // alu_op
     wire ALU_OP_ADD   = ADDI | LW;
+    wire ALU_OP_SUB   = 1'b0;
+    wire ALU_OP_AND   = AND | ANDI;
     wire ALU_OP_OR    = ORI;
+    wire ALU_OP_DIV   = DIV;
+    wire ALU_OP_DIVU  = DIVU;
+    wire ALU_OP_REM   = REM;
+    wire ALU_OP_REMU  = REMU;
     wire ALU_OP_SLL   = SLLI;
-    wire ALU_OP_EQ    = BEQ;
-    wire ALU_OP_NE    = BNE;
+    wire ALU_OP_EQ    = BEQ | BNE;
+    // wire ALU_OP_NE    = BNE;
+    wire ALU_OP_MUL   = MUL;
+    wire ALU_OP_MULH  = MULH;
+    wire ALU_OP_MULHU = MULHU;
+    wire ALU_OP_LT    = SLT | SLTI | BLT | BGE;
+    wire ALU_OP_LTU   = SLTU | SLTIU | BLTU | BGEU;
     
     // alua_sel
     wire ALU_A_SEL_RS1 = ADDI | ORI | SLLI | LW | BEQ | BNE | AND | OR
@@ -120,10 +130,21 @@ module Controller (
                    | {3{EXT_OP_J}} & `EXT_J;
                    
     assign alu_op = {5{ALU_OP_ADD  }} & `ALU_ADD
+                  | {5{ALU_OP_SUB  }} & `ALU_SUB
+                  | {5{ALU_OP_AND  }} & `ALU_AND
                   | {5{ALU_OP_OR   }} & `ALU_OR
+                  | {5{ALU_OP_DIV  }} & `ALU_DIV
+                  | {5{ALU_OP_DIVU }} & `ALU_DIVU
+                  | {5{ALU_OP_REM  }} & `ALU_REM
+                  | {5{ALU_OP_REMU }} & `ALU_REMU
                   | {5{ALU_OP_SLL  }} & `ALU_SLL
                   | {5{ALU_OP_EQ   }} & `ALU_EQ
-                  | {5{ALU_OP_NE   }} & `ALU_NE;
+                //   | {5{ALU_OP_NE   }} & `ALU_NE
+                  | {5{ALU_OP_MUL  }} & `ALU_MUL
+                  | {5{ALU_OP_MULH }} & `ALU_MULH
+                  | {5{ALU_OP_MULHU}} & `ALU_MULHU
+                  | {5{ALU_OP_LT   }} & `ALU_LT
+                  | {5{ALU_OP_LTU  }} & `ALU_LTU
 
     assign alua_sel = ALU_A_SEL_PC & `ALU_A_PC | ALU_A_SEL_RS1 & `ALU_A_RS1;
 
