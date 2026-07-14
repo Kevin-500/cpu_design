@@ -8,3 +8,12 @@ miniRV_basic/miniRV.gen/
 miniRV_basic/miniRV.ip_user_files/
 miniRV_basic/miniRV.runs/
 miniRV_basic/miniRV.sim/
+div_test/div_test.cache/
+div_test/div_test.hw/
+div_test/div_test.ip_user_files/
+div_test/div_test.sim/
+div_test/div_test.xpr
+div_test/div_testbench_behav.wcfg
+div_test/vivado_pid4256.str
+div_test/vivado.jou
+div_test/vivado.log

@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="885000001fs"></ZoomEndTime>
-      <Cursor1Time time="244499000fs"></Cursor1Time>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="21.437 ns"></ZoomEndTime>
+      <Cursor1Time time="49.585 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="205"></NameColumnWidth>
-      <ValueColumnWidth column_width="162"></ValueColumnWidth>
+      <ValueColumnWidth column_width="156"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="13" />
+   <WVObjectSize size="16" />
    <wvobject fp_name="/div_testbench/tb_clk" type="logic">
       <obj_property name="ElementShortName">tb_clk</obj_property>
       <obj_property name="ObjectShortName">tb_clk</obj_property>
@@ -35,22 +35,30 @@
    <wvobject fp_name="/div_testbench/dut_x" type="array">
       <obj_property name="ElementShortName">dut_x[7:0]</obj_property>
       <obj_property name="ObjectShortName">dut_x[7:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/div_testbench/dut_y" type="array">
       <obj_property name="ElementShortName">dut_y[7:0]</obj_property>
       <obj_property name="ObjectShortName">dut_y[7:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/div_testbench/dut_busy" type="logic">
       <obj_property name="ElementShortName">dut_busy</obj_property>
       <obj_property name="ObjectShortName">dut_busy</obj_property>
    </wvobject>
+   <wvobject fp_name="/div_testbench/DUT/count" type="array">
+      <obj_property name="ElementShortName">count[2:0]</obj_property>
+      <obj_property name="ObjectShortName">count[2:0]</obj_property>
+   </wvobject>
    <wvobject fp_name="/div_testbench/dut_z" type="array">
       <obj_property name="ElementShortName">dut_z[7:0]</obj_property>
       <obj_property name="ObjectShortName">dut_z[7:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
    </wvobject>
    <wvobject fp_name="/div_testbench/dut_r" type="array">
       <obj_property name="ElementShortName">dut_r[7:0]</obj_property>
       <obj_property name="ObjectShortName">dut_r[7:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/div_testbench/tb_i" type="array">
       <obj_property name="ElementShortName">tb_i[7:0]</obj_property>
@@ -71,5 +79,14 @@
    <wvobject fp_name="/div_testbench/tb_r_err" type="logic">
       <obj_property name="ElementShortName">tb_r_err</obj_property>
       <obj_property name="ObjectShortName">tb_r_err</obj_property>
+   </wvobject>
+   <wvobject fp_name="/div_testbench/DUT/dividend" type="array">
+      <obj_property name="ElementShortName">dividend[13:0]</obj_property>
+      <obj_property name="ObjectShortName">dividend[13:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/div_testbench/DUT/divisor" type="array">
+      <obj_property name="ElementShortName">divisor[7:0]</obj_property>
+      <obj_property name="ObjectShortName">divisor[7:0]</obj_property>
    </wvobject>
 </wave_config>
