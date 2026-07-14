@@ -14,7 +14,7 @@ module divider (
 reg [13:0]  dividend;   //被除数/余数
 reg [7:0]   divisor;    //除数
 reg [7:0]   merchant;   //商
-reg [2:0]   count;      
+reg [2:0]   count;      //计数器,记录加减次数
 reg         busy_reg;   //忙信号
 
 assign z = merchant;
@@ -56,7 +56,7 @@ always @(posedge clk or posedge rst) begin
         dividend <= dividend_init;
     end else if (busy_reg) begin
         if (count == 3'd6)
-            dividend <= dividend + (dividend[13] ? {{1'b0, divisor[6:0]}, 6'b0} : 13'b0);
+            dividend <= dividend + (dividend[13] ? {{1'b0, divisor[6:0]}, 6'b0} : 14'b0);
         else
             dividend <= {dividend[12:0], 1'b0} + (dividend[13] ? {{1'b0, divisor[6:0]}, 6'b0} : {~{1'b0, divisor[6:0]} + 1'b1, 6'b0});
     end
