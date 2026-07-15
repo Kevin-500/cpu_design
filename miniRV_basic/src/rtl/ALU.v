@@ -37,7 +37,8 @@ module ALU (
             `ALU_MUL  : c = busy ? 32'h0 : mul_res[31:0];
             `ALU_MULH : c = busy ? 32'h0 : mul_res[63:32];
             `ALU_MULHU: c = busy ? 32'h0 : mulu_res[63:32];
-            `ALU_LT   : c = (a < b);
+            // `ALU_LT   : c = (a < b);
+            `ALU_LT   : c = ({~a[31], a[30:0]} < {~b[31], b[30:0]});
             `ALU_LTU  : c = ({1'b0, a} < {1'b0, b});
             default   : c = 32'h0;
         endcase
@@ -46,7 +47,8 @@ module ALU (
     always @(*) begin
         case (op)
             `ALU_EQ : br = (a == b);
-            `ALU_LT : br = (a < b);
+            // `ALU_LT : br = (a < b);
+            `ALU_LT : br = ({~a[31], a[30:0]} < {~b[31], b[30:0]});
             `ALU_LTU: br = ({1'b0, a} < {1'b0, b});
             default : br = 1'b0;
         endcase

@@ -75,7 +75,7 @@ module Controller (
     wire ALU_OP_ADD   = ADDI | LW;
     wire ALU_OP_SUB   = 1'b0;
     wire ALU_OP_AND   = AND | ANDI;
-    wire ALU_OP_OR    = ORI;
+    wire ALU_OP_OR    = ORI | OR;
     wire ALU_OP_DIV   = DIV;
     wire ALU_OP_DIVU  = DIVU;
     wire ALU_OP_REM   = REM;
@@ -139,12 +139,11 @@ module Controller (
                   | {5{ALU_OP_REMU }} & `ALU_REMU
                   | {5{ALU_OP_SLL  }} & `ALU_SLL
                   | {5{ALU_OP_EQ   }} & `ALU_EQ
-                //   | {5{ALU_OP_NE   }} & `ALU_NE
                   | {5{ALU_OP_MUL  }} & `ALU_MUL
                   | {5{ALU_OP_MULH }} & `ALU_MULH
                   | {5{ALU_OP_MULHU}} & `ALU_MULHU
                   | {5{ALU_OP_LT   }} & `ALU_LT
-                  | {5{ALU_OP_LTU  }} & `ALU_LTU
+                  | {5{ALU_OP_LTU  }} & `ALU_LTU;
 
     assign alua_sel = ALU_A_SEL_PC & `ALU_A_PC | ALU_A_SEL_RS1 & `ALU_A_RS1;
 
