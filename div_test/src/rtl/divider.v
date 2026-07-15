@@ -6,14 +6,14 @@ module divider (
     input  wire [7:0] x,
     input  wire [7:0] y,
     input  wire       start,
-    output wire [7:0] z,
-    output wire [7:0] r,
+    output wire [7:0] z,//原码
+    output wire [7:0] r,//原码
     output wire       busy
 );
 
 reg [13:0]  dividend;   //被除数/余数
 reg [7:0]   divisor;    //除数
-reg [7:0]   merchant;   //商
+reg [7:0]   merchant;   //商,原码
 reg [2:0]   count;      //计数器,记录加减次数
 reg         busy_reg;   //忙信号
 

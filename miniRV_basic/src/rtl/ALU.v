@@ -22,6 +22,13 @@ module ALU (
     wire [31:0] div_rem , divu_rem ;    // remainder
     wire        div_busy, divu_busy;
     reg  [ 4:0] op_r;
+    wire [31:0] sra_0, sra_1, sra_2, sra_3, sra_4;
+
+    assign sra_0 = b[0] ? {{1{a[31]}}, a[31:1]} : a;
+    assign sra_1 = b[1] ? {{2{a[31]}}, sra_0[31:2]} : sra_0;
+    assign sra_2 = b[2] ? {{4{a[31]}}, sra_1[31:4]} : sra_1;
+    assign sra_3 = b[3] ? {{8{a[31]}}, sra_2[31:8]} : sra_2;
+    assign sra_4 = b[4] ? {{16{a[31]}}, sra_3[31:16]} : sra_3;
 
     always @(*) begin
         case (op_r != 4'h0 ? op_r : op)
@@ -37,9 +44,9 @@ module ALU (
             `ALU_MUL  : c = busy ? 32'h0 : mul_res[31:0];
             `ALU_MULH : c = busy ? 32'h0 : mul_res[63:32];
             `ALU_MULHU: c = busy ? 32'h0 : mulu_res[63:32];
-            // `ALU_LT   : c = (a < b);
             `ALU_LT   : c = ({~a[31], a[30:0]} < {~b[31], b[30:0]});
             `ALU_LTU  : c = ({1'b0, a} < {1'b0, b});
+            `ALU_SRA  : c = sra_4;
             default   : c = 32'h0;
         endcase
     end

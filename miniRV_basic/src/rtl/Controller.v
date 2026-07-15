@@ -46,6 +46,7 @@ module Controller (
     wire BLTU  = (opcode == 7'b1100011) && (funct3 == 3'b110);
     wire BGE   = (opcode == 7'b1100011) && (funct3 == 3'b101);
     wire BGEU  = (opcode == 7'b1100011) && (funct3 == 3'b111);
+    wire SRAI  = (opcode == 7'b0010011) && (funct3 == 3'b101) && (funct7 == 7'b0100000);
  
     // npc_op
     wire NPC_OP_BRA = BEQ | BNE | BLT | BLTU | BGE | BGEU;
@@ -55,18 +56,18 @@ module Controller (
     // rf_we
     wire RF_OP_WE = ADDI | ORI | SLLI | LW | LUI | JAL | AND | OR
                   | SLT | SLTU | MUL | MULH | MULHU | DIV | DIVU | REM
-                  | REMU | ANDI | SLTI | SLTIU;
+                  | REMU | ANDI | SLTI | SLTIU | SRAI;
     
     // rf_wsel
     wire WB_OP_ALU = ADDI | ORI | SLLI | AND | OR | SLT | SLTU | MUL
                    | MULH | MULHU | DIV | DIVU | REM| REMU | ANDI | SLTI
-                   | SLTIU;
+                   | SLTIU | SRAI;
     wire WB_OP_RAM = LW;
     wire WB_OP_PC4 = JAL;
     wire WB_OP_EXT = LUI;
     
     // sext_op
-    wire EXT_OP_I = ADDI | ORI | SLLI | LW | ANDI | SLTI | SLTIU;
+    wire EXT_OP_I = ADDI | ORI | SLLI | LW | ANDI | SLTI | SLTIU | SRAI;
     wire EXT_OP_B = BEQ | BNE | BLT | BLTU | BGE | BGEU;
     wire EXT_OP_U = LUI;
     wire EXT_OP_J = JAL;
@@ -88,18 +89,20 @@ module Controller (
     wire ALU_OP_MULHU = MULHU;
     wire ALU_OP_LT    = SLT | SLTI | BLT | BGE;
     wire ALU_OP_LTU   = SLTU | SLTIU | BLTU | BGEU;
+    wire ALU_OP_SRA   = SRAI;
     
     // alua_sel
     wire ALU_A_SEL_RS1 = ADDI | ORI | SLLI | LW | BEQ | BNE | AND | OR
                        | SLT | SLTU | MUL | MULH | MULHU | DIV | DIVU | REM
-                       | REMU | ANDI | SLTI | SLTIU | BLT | BLTU | BGE | BGEU;
+                       | REMU | ANDI | SLTI | SLTIU | BLT | BLTU | BGE | BGEU
+                       | SRAI;
     wire ALU_A_SEL_PC  = 1'b0;
                         
     // alub_sel
     wire ALU_B_SEL_RS2 = BEQ | BNE | AND | OR | SLT | SLTU | MUL | MULH
                        | MULHU | DIV | DIVU | REM | REMU | BLT | BLTU | BGE
                        | BGEU;
-    wire ALU_B_SEL_EXT = ADDI | ORI | SLLI | LW | ANDI | SLTI | SLTIU;
+    wire ALU_B_SEL_EXT = ADDI | ORI | SLLI | LW | ANDI | SLTI | SLTIU | SRAI;
         
     // ram_r_op
     wire RAM_EXT_B  = 1'b0;
@@ -143,7 +146,8 @@ module Controller (
                   | {5{ALU_OP_MULH }} & `ALU_MULH
                   | {5{ALU_OP_MULHU}} & `ALU_MULHU
                   | {5{ALU_OP_LT   }} & `ALU_LT
-                  | {5{ALU_OP_LTU  }} & `ALU_LTU;
+                  | {5{ALU_OP_LTU  }} & `ALU_LTU
+                  | {5{ALU_OP_SRA  }} & `ALU_SRA;
 
     assign alua_sel = ALU_A_SEL_PC & `ALU_A_PC | ALU_A_SEL_RS1 & `ALU_A_RS1;
 
