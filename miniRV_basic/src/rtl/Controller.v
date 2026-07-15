@@ -161,7 +161,7 @@ module Controller (
                     | {4{RAM_W_H}} & `RAM_WE_H
                     | {4{RAM_W_W}} & `RAM_WE_W;
 
-    assign is_mul = 1'b0;
-    assign is_div = 1'b0;
+    assign is_mul = MUL | MULH | MULHU;
+    assign is_div = DIV | DIVU | REM | REMU;
 
 endmodule
