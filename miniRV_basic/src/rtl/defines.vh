@@ -20,7 +20,10 @@
 `define ALU_MULHU   5'h0C
 `define ALU_LT      5'h0D
 `define ALU_LTU     5'h0E
-`define ALU_SRA     5'h18
+`define ALU_SRA     5'h0F
+`define ALU_NE      5'h10
+`define ALU_NLT     5'h11
+`define ALU_NLTU    5'h12
     
 `define NPC_PC4     2'b00
 `define NPC_BRA     2'b10

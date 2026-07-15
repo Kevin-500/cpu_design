@@ -16,8 +16,7 @@ module Controller (
     output wire [ 2:0]  ram_r_op,
     output wire [ 3:0]  ram_w_op,
     output wire         rf_we,
-    output wire [ 1:0]  rf_wsel,
-    output wire         n_br //br需要取反
+    output wire [ 1:0]  rf_wsel
 );
 
     wire ADDI  = (opcode == 7'b0010011) && (funct3 == 3'b000);
@@ -82,14 +81,16 @@ module Controller (
     wire ALU_OP_REM   = REM;
     wire ALU_OP_REMU  = REMU;
     wire ALU_OP_SLL   = SLLI;
-    wire ALU_OP_EQ    = BEQ | BNE;
-    // wire ALU_OP_NE    = BNE;
+    wire ALU_OP_EQ    = BEQ;
+    wire ALU_OP_NE    = BNE;
     wire ALU_OP_MUL   = MUL;
     wire ALU_OP_MULH  = MULH;
     wire ALU_OP_MULHU = MULHU;
-    wire ALU_OP_LT    = SLT | SLTI | BLT | BGE;
-    wire ALU_OP_LTU   = SLTU | SLTIU | BLTU | BGEU;
+    wire ALU_OP_LT    = SLT | SLTI | BLT;
+    wire ALU_OP_LTU   = SLTU | SLTIU | BLTU;
     wire ALU_OP_SRA   = SRAI;
+    wire ALU_OP_NLT   = BGE;
+    wire ALU_OP_NLTU  = BGEU;
     
     // alua_sel
     wire ALU_A_SEL_RS1 = ADDI | ORI | SLLI | LW | BEQ | BNE | AND | OR
@@ -147,13 +148,14 @@ module Controller (
                   | {5{ALU_OP_MULHU}} & `ALU_MULHU
                   | {5{ALU_OP_LT   }} & `ALU_LT
                   | {5{ALU_OP_LTU  }} & `ALU_LTU
-                  | {5{ALU_OP_SRA  }} & `ALU_SRA;
+                  | {5{ALU_OP_SRA  }} & `ALU_SRA
+                  | {5{ALU_OP_NE   }} & `ALU_NE
+                  | {5{ALU_OP_NLT  }} & `ALU_NLT
+                  | {5{ALU_OP_NLTU }} & `ALU_NLTU;
 
     assign alua_sel = ALU_A_SEL_PC & `ALU_A_PC | ALU_A_SEL_RS1 & `ALU_A_RS1;
 
     assign alub_sel = ALU_B_SEL_RS2 & `ALU_B_RS2 | ALU_B_SEL_EXT & `ALU_B_EXT;
-
-    assign n_br = BNE | BGE | BGEU; // 仅实现BEQ,BLT,BLTU,其他比较用取反实现.
   
     assign ram_r_op = {3{RAM_EXT_B }} & `RAM_EXT_B
                     | {3{RAM_EXT_BU}} & `RAM_EXT_BU
