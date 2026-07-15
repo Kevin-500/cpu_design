@@ -15,12 +15,16 @@ module divider #(
 
 reg [2*WIDTH-3:0]  dividend;   //被除数/余数
 reg [WIDTH-1:0]    divisor;    //除数
-reg [WIDTH-1:0]    merchant;   //商
-reg [$clog2(WIDTH)-1:0] count;      //计数器,记录加减次数
+reg [WIDTH-1:0]    merchant;   //商,原码存储
+reg [$clog2(WIDTH)-1:0] count; //计数器,记录加减次数
 reg                busy_reg;   //忙信号
 
-assign z = merchant;
-assign r = {merchant[WIDTH-1] ^ divisor[WIDTH-1], dividend[2*WIDTH-4:WIDTH-2]};
+wire [WIDTH-1:0]   remainder;  //余数,原码存储
+assign remainder = {merchant[WIDTH-1] ^ divisor[WIDTH-1], dividend[2*WIDTH-4:WIDTH-2]};
+
+// 补码化
+assign z = merchant[WIDTH-1] ? {1'b1, ~merchant[WIDTH-2:0] + 1'b1} : {1'b0, merchant[WIDTH-2:0]};
+assign r = remainder[WIDTH-1] ? {1'b1, ~remainder[WIDTH-2:0] + 1'b1} : {1'b0, remainder[WIDTH-2:0]};
 
 assign busy = busy_reg;
 
