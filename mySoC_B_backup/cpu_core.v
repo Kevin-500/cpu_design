@@ -27,7 +27,6 @@ module cpu_core(
     wire [31:0] npc;
     wire [31:0] pc4;
     wire [31:0] inst;
-    wire [31:0] npc_offset;
 
     // Controller
     wire [ 1:0] npc_op;
@@ -90,7 +89,7 @@ module cpu_core(
     NPC U_NPC (
         .op         (npc_op),
         .pc         (pc),
-        .offset     (npc_offset),
+        .offset     (ext),
         .br         (br),
         .npc        (npc),
         .pc4        (pc4)
@@ -169,7 +168,6 @@ module cpu_core(
     /***************************** EX *****************************/
     assign alu_a = alua_sel ? pc  : rf_rd1;
     assign alu_b = alub_sel ? ext : rf_rd2;
-    assign npc_offset = (npc_op == `NPC_JALR) ? alu_c : ext;
 
     ALU U_ALU (
         .rst        (cpu_rst),
@@ -191,7 +189,7 @@ module cpu_core(
         .da_addr    (da_addr),
 
         .ram_wop    (ram_wop),
-        .ram_wdata  (rf_rd2),
+        .ram_wdata  (32'h0),
         .da_wen     (da_wen),
         .da_wdata   (da_wdata)
     );
