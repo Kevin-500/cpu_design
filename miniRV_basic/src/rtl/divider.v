@@ -3,66 +3,89 @@
 module divider #(
     parameter WIDTH = 32
 )(
-    input  wire       clk,
-    input  wire       rst,
+    input  wire             clk,
+    input  wire             rst,
     input  wire [WIDTH-1:0] x,
     input  wire [WIDTH-1:0] y,
-    input  wire       start,
-    output reg  [WIDTH-1:0] z,
-    output reg  [WIDTH-1:0] r,
-    output reg        busy
+    input  wire             start,
+    output wire [WIDTH-1:0] z,
+    output wire [WIDTH-1:0] r,
+    output wire             busy
 );
 
-    localparam COUNT_WIDTH = $clog2(WIDTH);
-    reg [WIDTH-1:0] divisor;
-    reg [WIDTH-1:0] quotient_work;
-    reg [WIDTH:0] remainder_work;
-    reg [COUNT_WIDTH-1:0] count;
-    reg divisor_zero;
+reg [2*WIDTH-3:0]  dividend;   //被除数/余数
+reg [WIDTH-1:0]    divisor;    //除数
+reg [WIDTH-1:0]    merchant;   //商,原码存储
+reg [$clog2(WIDTH)-1:0] count; //计数器,记录加减次数
+reg                busy_reg;   //忙信号
 
-    wire [WIDTH:0] shifted_remainder =
-        {remainder_work[WIDTH-1:0], quotient_work[WIDTH-1]};
-    wire subtract_divisor = shifted_remainder >= {1'b0, divisor};
-    wire [WIDTH:0] remainder_next = subtract_divisor
-        ? shifted_remainder - {1'b0, divisor} : shifted_remainder;
-    wire [WIDTH-1:0] quotient_next =
-        {quotient_work[WIDTH-2:0], subtract_divisor};
+wire [WIDTH-1:0]   remainder;  //余数,原码存储
+assign remainder = {merchant[WIDTH-1] ^ divisor[WIDTH-1], dividend[2*WIDTH-4:WIDTH-2]};
 
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            z               <= {WIDTH{1'b0}};
-            r               <= {WIDTH{1'b0}};
-            divisor         <= {WIDTH{1'b0}};
-            quotient_work   <= {WIDTH{1'b0}};
-            remainder_work  <= {(WIDTH+1){1'b0}};
-            count           <= {COUNT_WIDTH{1'b0}};
-            divisor_zero    <= 1'b0;
-            busy            <= 1'b0;
-        end else if (start && !busy) begin
-            divisor         <= y;
-            quotient_work   <= x;
-            remainder_work  <= {(WIDTH+1){1'b0}};
-            count           <= {COUNT_WIDTH{1'b0}};
-            divisor_zero    <= (y == {WIDTH{1'b0}});
-            busy            <= 1'b1;
-        end else if (busy) begin
-            if (divisor_zero) begin
-                z    <= {WIDTH{1'b1}};
-                r    <= quotient_work;
-                busy <= 1'b0;
-            end else begin
-                quotient_work  <= quotient_next;
-                remainder_work <= remainder_next;
-                if (count == WIDTH-1) begin
-                    z     <= quotient_next;
-                    r     <= remainder_next[WIDTH-1:0];
-                    busy  <= 1'b0;
-                    count <= {COUNT_WIDTH{1'b0}};
-                end else begin
-                    count <= count + 1'b1;
-                end
-            end
-        end
+// 补码化
+assign z = merchant[WIDTH-1] ? {1'b1, ~merchant[WIDTH-2:0] + 1'b1} : {1'b0, merchant[WIDTH-2:0]};
+assign r = remainder[WIDTH-1] ? {1'b1, ~remainder[WIDTH-2:0] + 1'b1} : {1'b0, remainder[WIDTH-2:0]};
+
+assign busy = busy_reg;
+
+    // 忙信号
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        busy_reg <= 1'b0;
+    end else if (start) begin
+        busy_reg <= 1'b1;
+    end else if (count == (WIDTH-2)) begin
+        busy_reg <= 1'b0;
     end
-	
+end
+
+// 计数器控制
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        count <= {$clog2(WIDTH){1'b0}};
+    end else if (count == (WIDTH-2)) begin
+        count <= {$clog2(WIDTH){1'b0}};
+    end else if (busy_reg) begin
+        count <= count + 1'b1;
+    end else begin
+        count <= {$clog2(WIDTH){1'b0}};
+    end
+end
+
+// 被除数余数寄存器
+wire [2*WIDTH-3:0] dividend_init;
+assign dividend_init = {{(WIDTH-1){1'b0}}, x[WIDTH-2:0]} + {~{{1'b0}, y[WIDTH-2:0]} + 1'b1, {(WIDTH-2){1'b0}}};
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        dividend <= {(2*WIDTH-2){1'b0}};
+    end else if (start) begin
+        dividend <= dividend_init;
+    end else if (busy_reg) begin
+        if (count == (WIDTH-2))
+            dividend <= dividend + (dividend[2*WIDTH-3] ? {{1'b0, divisor[WIDTH-2:0]}, {(WIDTH-2){1'b0}}} : {(2*WIDTH-2){1'b0}});
+        else
+            dividend <= {dividend[2*WIDTH-4:0], 1'b0} + (dividend[2*WIDTH-3] ? {{1'b0, divisor[WIDTH-2:0]}, {(WIDTH-2){1'b0}}} : {~{1'b0, divisor[WIDTH-2:0]} + 1'b1, {(WIDTH-2){1'b0}}});
+    end
+end
+
+// 除数寄存器
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        divisor <= {WIDTH{1'b0}};
+    end else if (start) begin
+        divisor <= y;
+    end
+end
+
+// 商寄存器
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        merchant <= {WIDTH{1'b0}};
+    end else if (start) begin
+        merchant <= ((x[WIDTH-1] ^ y[WIDTH-1]) ? {1'b1, {(WIDTH-1){1'b0}}} : {WIDTH{1'b0}}) + (dividend_init[2*WIDTH-3] ? 1'b0 : 1'b1);//首次生成符号位以及最高位数值位
+    end else if (busy_reg) begin
+        merchant <= {merchant[WIDTH-1], merchant[WIDTH-3:0], dividend[2*WIDTH-3] ? 1'b0 : 1'b1};
+    end
+end
+
 endmodule
