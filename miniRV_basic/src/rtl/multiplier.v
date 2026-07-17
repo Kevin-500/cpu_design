@@ -46,7 +46,7 @@ module multiplier #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             count <= {C_WID{1'b0}};
-        end else if (count == C_WID'(WIDTH)) begin
+        end else if (count == C_WID'(WIDTH)) begin  //共右移WIDTH次
             count <= {C_WID{1'b0}};
         end else if (busy_reg) begin
             count <= count + 1'b1;
@@ -69,9 +69,9 @@ module multiplier #(
         if (rst) begin
             y_reg <= {(WIDTH+1){1'b0}};
         end else if (start) begin
-            y_reg <= {y, 1'b0}; // 将乘数左移一
+            y_reg <= {y, 1'b0}; // 最低位用于判断加+/-x,初始拓展为0
         end else if (busy_reg) begin
-            y_reg <= {p_sum[0], y_reg[WIDTH:1]}; // 乘数右移一
+            y_reg <= {p_sum[0], y_reg[WIDTH:1]}; // 乘数右移一位
         end
     end
 

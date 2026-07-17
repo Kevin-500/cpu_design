@@ -34,10 +34,10 @@ module ALU (
             `ALU_SLL  : c = a << b[4:0];
             `ALU_SRL  : c = a >> b[4:0];
             `ALU_SRA  : c = $signed(a) >>> b[4:0];
-            `ALU_LT   : c = ({~a[31], a[30:0]} < {~b[31], b[30:0]});
-            `ALU_LTU  : c = a < b;
-            `ALU_NLT  : c = !({~a[31], a[30:0]} < {~b[31], b[30:0]});
-            `ALU_NLTU : c = !(a < b);
+            `ALU_LT   : c = $signed(a) < $signed(b);
+            `ALU_LTU  : c = $unsigned(a) < $unsigned(b);
+            `ALU_NLT  : c = !($signed(a) < $signed(b));
+            `ALU_NLTU : c = !($unsigned(a) < $unsigned(b));
             `ALU_MUL  : c = mul_res[31:0];
             `ALU_MULH : c = mul_res[63:32];
             `ALU_MULHU: c = mulu_res[63:32];
@@ -53,10 +53,10 @@ module ALU (
         case (op)
             `ALU_EQ : br = a == b;
             `ALU_NE : br = a != b;
-            `ALU_LT : br = ({~a[31], a[30:0]} < {~b[31], b[30:0]});
-            `ALU_LTU : br = a < b;
-            `ALU_NLT : br = !({~a[31], a[30:0]} < {~b[31], b[30:0]});
-            `ALU_NLTU : br = !(a < b);
+            `ALU_LT : br = $signed(a) < $signed(b);
+            `ALU_LTU : br = $unsigned(a) < $unsigned(b);
+            `ALU_NLT : br = !($signed(a) < $signed(b));
+            `ALU_NLTU : br = !($unsigned(a) < $unsigned(b));
             default : br = 1'b0;
         endcase
     end

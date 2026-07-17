@@ -43,7 +43,7 @@ end
 always @(posedge clk or posedge rst) begin
     if (rst) begin
         count <= {$clog2(WIDTH){1'b0}};
-    end else if (count == (WIDTH-2)) begin
+    end else if (count == (WIDTH-2)) begin  //共计WIDTH-1次计数,其中最后一次为余数修正
         count <= {$clog2(WIDTH){1'b0}};
     end else if (busy_reg) begin
         count <= count + 1'b1;
@@ -53,7 +53,7 @@ always @(posedge clk or posedge rst) begin
 end
 
 // 被除数余数寄存器
-wire [2*WIDTH-3:0] dividend_init;
+wire [2*WIDTH-3:0] dividend_init;   //初始化:低位为x的数值位,高位加上-y*的补码
 assign dividend_init = {{(WIDTH-1){1'b0}}, x[WIDTH-2:0]} + {~{{1'b0}, y[WIDTH-2:0]} + 1'b1, {(WIDTH-2){1'b0}}};
 always @(posedge clk or posedge rst) begin
     if (rst) begin
@@ -61,9 +61,9 @@ always @(posedge clk or posedge rst) begin
     end else if (start) begin
         dividend <= dividend_init;
     end else if (busy_reg) begin
-        if (count == (WIDTH-2))
+        if (count == (WIDTH-2))     //最后一个周期:若被除数首位为1说明为余数为负,需要加回一个y*,若首位为0则不加.
             dividend <= dividend + (dividend[2*WIDTH-3] ? {{1'b0, divisor[WIDTH-2:0]}, {(WIDTH-2){1'b0}}} : {(2*WIDTH-2){1'b0}});
-        else
+        else                        //正常周期:按正负号决定+/- y*
             dividend <= {dividend[2*WIDTH-4:0], 1'b0} + (dividend[2*WIDTH-3] ? {{1'b0, divisor[WIDTH-2:0]}, {(WIDTH-2){1'b0}}} : {~{1'b0, divisor[WIDTH-2:0]} + 1'b1, {(WIDTH-2){1'b0}}});
     end
 end
@@ -81,9 +81,9 @@ end
 always @(posedge clk or posedge rst) begin
     if (rst) begin
         merchant <= {WIDTH{1'b0}};
-    end else if (start) begin
-        merchant <= ((x[WIDTH-1] ^ y[WIDTH-1]) ? {1'b1, {(WIDTH-1){1'b0}}} : {WIDTH{1'b0}}) + (dividend_init[2*WIDTH-3] ? 1'b0 : 1'b1);//首次生成符号位以及最高位数值位
-    end else if (busy_reg) begin
+    end else if (start) begin       //start时生成符号位以及最高位数值位
+        merchant <= ((x[WIDTH-1] ^ y[WIDTH-1]) ? {1'b1, {(WIDTH-1){1'b0}}} : {WIDTH{1'b0}}) + (dividend_init[2*WIDTH-3] ? 1'b0 : 1'b1);
+    end else if (busy_reg) begin    //左移
         merchant <= {merchant[WIDTH-1], merchant[WIDTH-3:0], dividend[2*WIDTH-3] ? 1'b0 : 1'b1};
     end
 end
