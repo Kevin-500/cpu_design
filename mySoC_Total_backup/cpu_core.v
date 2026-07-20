@@ -246,7 +246,112 @@ module cpu_core(
         inst_finished_r <= cpu_rst ? 1'b0 : inst_finished;
     end
 
+/*
+流水线寄存器
+共5级流水线,4个寄存器
+目前为理想形态,无数据与控制冒险
+*/
 
+// IF/ID
+    reg [31:0] id_pc;
+    reg [31:0] id_inst;
+    //pc4由pc自然生成
+    wire [31:0] if_pc = pc;
+    wire [31:0] if_inst = inst;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) id_pc <= 32'h0;
+        else     id_pc <= if_pc;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) id_inst <= 32'h0;
+        else     id_inst <= if_inst;
+    end
+
+// ID/EX
+    reg [1:0] ex_npc_op;
+    reg [2:0] ex_ram_rop;
+    reg [3:0] ex_ram_wop;
+    reg [4:0] ex_alu_op;
+    reg [31:0] ex_alu_a;
+    reg [31:0] ex_alu_b;
+    reg [31:0] ex_rd2;
+    reg [31:0] ex_sext;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_npc_op <= 2'b0;
+        else     ex_npc_op <= npc_op;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_ram_rop <= 3'b0;
+        else     ex_ram_rop <= ram_rop;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_ram_wop <= 4'b0;
+        else     ex_ram_wop <= ram_wop;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_alu_op <= 5'b0;
+        else     ex_alu_op <= alu_op;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_alu_a <= 32'h0;
+        else     ex_alu_a <= alu_a;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_alu_b <= 32'h0;
+        else     ex_alu_b <= alu_b;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_rd2 <= 32'h0;
+        else     ex_rd2 <= rf_rd2;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_sext <= 32'h0;
+        else     ex_sext <= ext;
+    end
+
+// EX/MEM
+    reg [2:0] mem_ram_rop;
+    reg [3:0] mem_ram_wop;
+    reg [31:0] mem_alu_c;
+    reg [31:0] mem_rd2;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_ram_rop <= 3'h0;
+        else     mem_ram_rop <= ex_ram_rop;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_ram_wop <= 4'h0;
+        else     mem_ram_wop <= ex_ram_wop;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_alu_c <= 32'h0;
+        else     mem_alu_c <= alu_c;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_rd2 <= 32'h0;
+        else     mem_rd2 <= ex_rd2;
+    end
+
+// MEM/WB
+    reg [31:0] wb_mext;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_mext <= 32'h0;
+        else     wb_mext <= ram_ext;
+    end
 
     /********************* Your CPU ends here *********************/
 
