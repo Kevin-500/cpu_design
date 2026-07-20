@@ -88,7 +88,7 @@ module cpu_core(
     assign ifetch_addr = pc;
 
     NPC U_NPC (
-        .op         (npc_op),
+        .op         (ex_npc_op),
         .pc         (pc),
         .offset     (npc_offset),
         .br         (br),
@@ -111,9 +111,9 @@ module cpu_core(
 
     Controller U_CU (
         // input
-        .opcode         (inst[6:0]),
-        .funct3         (inst[14:12]),
-        .funct7         (inst[31:25]),
+        .opcode         (id_inst[6:0]),
+        .funct3         (id_inst[14:12]),
+        .funct7         (id_inst[31:25]),
         // output
         .npc_op         (npc_op),
         .sext_op        (sext_op),
@@ -130,8 +130,8 @@ module cpu_core(
 
     RF U_RF (
         .clk        (cpu_clk),
-        .rR1        (inst[19:15]),
-        .rR2        (inst[24:20]),
+        .rR1        (id_inst[19:15]),
+        .rR2        (id_inst[24:20]),
         .rD1        (rf_rd1),
         .rD2        (rf_rd2),
         .we         (rf_we1),
@@ -141,12 +141,12 @@ module cpu_core(
 
     SEXT U_SEXT (
         .op         (sext_op),
-        .imm        (inst[31:7]),
+        .imm        (id_inst[31:7]),
         .ext        (ext)
     );
     
     // 遇到访存指令时, 拉高ld_st_flag标志位，表示正在执行访存指令
-    assign is_ld_st = (ram_rop != `RAM_EXT_N) | (ram_wop != `RAM_WE_N);
+    assign is_ld_st = (mem_ram_rop != `RAM_EXT_N) | (mem_ram_wop != `RAM_WE_N);
     always @(posedge cpu_clk or posedge cpu_rst) begin
         if      (cpu_rst)    ld_st_flag <= 1'b0;
         else if (is_ld_st)   ld_st_flag <= 1'b1;
@@ -163,20 +163,20 @@ module cpu_core(
 
     // 访存、乘除法指令无法在1个时钟内执行完，故先把指令的目标寄存器缓存起来
     always @(posedge cpu_clk) begin
-        if (is_ld_st | is_mul_div) rf_wR_r <= inst[11:7];
+        if (is_ld_st | is_mul_div) rf_wR_r <= id_inst[11:7];
     end
 
     /***************************** EX *****************************/
-    assign alu_a = alua_sel ? pc  : rf_rd1;
+    assign alu_a = alua_sel ? id_pc  : rf_rd1;
     assign alu_b = alub_sel ? ext : rf_rd2;
-    assign npc_offset = (npc_op == `NPC_JALR) ? alu_c : ext;
+    assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
 
     ALU U_ALU (
         .rst        (cpu_rst),
         .clk        (cpu_clk),
-        .op         (alu_op),
-        .a          (alu_a),
-        .b          (alu_b),
+        .op         (ex_alu_op),
+        .a          (ex_alu_a),
+        .b          (ex_alu_b),
         .br         (br),
         .c          (alu_c),
         .busy       (mul_div_busy)
@@ -184,14 +184,14 @@ module cpu_core(
 
     /***************************** MEM *****************************/
     MREQ U_MEM_REQ (
-        .ram_addr   (alu_c),
+        .ram_addr   (mem_alu_c),
 
-        .ram_rop    (ram_rop),
+        .ram_rop    (mem_ram_rop),
         .da_ren     (da_ren),
         .da_addr    (da_addr),
 
-        .ram_wop    (ram_wop),
-        .ram_wdata  (rf_rd2),
+        .ram_wop    (mem_ram_wop),
+        .ram_wdata  (mem_rd2),
         .da_wen     (da_wen),
         .da_wdata   (da_wdata)
     );
@@ -203,8 +203,8 @@ module cpu_core(
         .ext            (ram_ext)
     );
 
-    always @(posedge cpu_clk) if (is_ld_st) alu_c_r   <= alu_c;
-    always @(posedge cpu_clk) if (is_ld_st) ram_rop_r <= ram_rop;
+    always @(posedge cpu_clk) if (is_ld_st) alu_c_r   <= mem_alu_c;
+    always @(posedge cpu_clk) if (is_ld_st) ram_rop_r <= mem_ram_rop;
 
     // Interface to Bus
     always @(posedge cpu_clk or posedge cpu_rst) begin
@@ -226,14 +226,16 @@ module cpu_core(
                     mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
                     ifetch_valid & rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
 
-    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : inst[11:7];
+    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : id_inst[11:7];
 
+
+    //TODO: wD选择的流水线化未完成
     always @(*) begin
         casex ({ld_st_flag, rf_wsel})
             {1'b0, `WB_ALU}: rf_wD = alu_c;
-            {1'b0, `WB_PC4}: rf_wD = pc4;
+            {1'b0, `WB_PC4}: rf_wD = id_pc + 32'h4;
             {1'b0, `WB_EXT}: rf_wD = ext;
-            {1'b1, 2'b??  }: rf_wD = ram_ext;
+            {1'b1, 2'b??  }: rf_wD = wb_mext;
             default        : rf_wD = 32'h0;
         endcase
     end
