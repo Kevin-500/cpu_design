@@ -88,7 +88,7 @@ module cpu_core(
     assign ifetch_addr = pc;
 
     NPC U_NPC (
-        .op         (ex_npc_op),
+        .op         (npc_op),
         .pc         (pc),
         .offset     (npc_offset),
         .br         (br),
@@ -111,9 +111,9 @@ module cpu_core(
 
     Controller U_CU (
         // input
-        .opcode         (id_inst[6:0]),
-        .funct3         (id_inst[14:12]),
-        .funct7         (id_inst[31:25]),
+        .opcode         (inst[6:0]),
+        .funct3         (inst[14:12]),
+        .funct7         (inst[31:25]),
         // output
         .npc_op         (npc_op),
         .sext_op        (sext_op),
@@ -130,8 +130,8 @@ module cpu_core(
 
     RF U_RF (
         .clk        (cpu_clk),
-        .rR1        (id_inst[19:15]),
-        .rR2        (id_inst[24:20]),
+        .rR1        (inst[19:15]),
+        .rR2        (inst[24:20]),
         .rD1        (rf_rd1),
         .rD2        (rf_rd2),
         .we         (rf_we1),
@@ -141,12 +141,12 @@ module cpu_core(
 
     SEXT U_SEXT (
         .op         (sext_op),
-        .imm        (id_inst[31:7]),
+        .imm        (inst[31:7]),
         .ext        (ext)
     );
     
     // 遇到访存指令时, 拉高ld_st_flag标志位，表示正在执行访存指令
-    assign is_ld_st = (mem_ram_rop != `RAM_EXT_N) | (mem_ram_wop != `RAM_WE_N);
+    assign is_ld_st = (ram_rop != `RAM_EXT_N) | (ram_wop != `RAM_WE_N);
     always @(posedge cpu_clk or posedge cpu_rst) begin
         if      (cpu_rst)    ld_st_flag <= 1'b0;
         else if (is_ld_st)   ld_st_flag <= 1'b1;
@@ -154,7 +154,6 @@ module cpu_core(
     end
 
     // 遇到乘除法指令时，拉高mul_div_flag标志位，表示正在执行乘除法指令
-    // TODO:这个标志也要寄存
     assign is_mul_div = is_mul | is_div;
     always @(posedge cpu_clk or posedge cpu_rst) begin
         if      (cpu_rst)       mul_div_flag <= 1'b0;
@@ -162,25 +161,22 @@ module cpu_core(
         else if (!mul_div_busy) mul_div_flag <= 1'b0;
     end
 
-
-    // Read Here
-    // TODO:wr的流水线存储未完成.
     // 访存、乘除法指令无法在1个时钟内执行完，故先把指令的目标寄存器缓存起来
     always @(posedge cpu_clk) begin
-        if (is_ld_st | is_mul_div) rf_wR_r <= id_inst[11:7];
+        if (is_ld_st | is_mul_div) rf_wR_r <= inst[11:7];
     end
 
     /***************************** EX *****************************/
-    assign alu_a = alua_sel ? id_pc  : rf_rd1;
+    assign alu_a = alua_sel ? pc  : rf_rd1;
     assign alu_b = alub_sel ? ext : rf_rd2;
-    assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
+    assign npc_offset = (npc_op == `NPC_JALR) ? alu_c : ext;
 
     ALU U_ALU (
         .rst        (cpu_rst),
         .clk        (cpu_clk),
-        .op         (ex_alu_op),
-        .a          (ex_alu_a),
-        .b          (ex_alu_b),
+        .op         (alu_op),
+        .a          (alu_a),
+        .b          (alu_b),
         .br         (br),
         .c          (alu_c),
         .busy       (mul_div_busy)
@@ -188,14 +184,14 @@ module cpu_core(
 
     /***************************** MEM *****************************/
     MREQ U_MEM_REQ (
-        .ram_addr   (mem_alu_c),
+        .ram_addr   (alu_c),
 
-        .ram_rop    (mem_ram_rop),
+        .ram_rop    (ram_rop),
         .da_ren     (da_ren),
         .da_addr    (da_addr),
 
-        .ram_wop    (mem_ram_wop),
-        .ram_wdata  (mem_rd2),
+        .ram_wop    (ram_wop),
+        .ram_wdata  (rf_rd2),
         .da_wen     (da_wen),
         .da_wdata   (da_wdata)
     );
@@ -207,8 +203,8 @@ module cpu_core(
         .ext            (ram_ext)
     );
 
-    always @(posedge cpu_clk) if (is_ld_st) alu_c_r   <= mem_alu_c;
-    always @(posedge cpu_clk) if (is_ld_st) ram_rop_r <= mem_ram_rop;
+    always @(posedge cpu_clk) if (is_ld_st) alu_c_r   <= alu_c;
+    always @(posedge cpu_clk) if (is_ld_st) ram_rop_r <= ram_rop;
 
     // Interface to Bus
     always @(posedge cpu_clk or posedge cpu_rst) begin
@@ -230,16 +226,14 @@ module cpu_core(
                     mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
                     ifetch_valid & rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
 
-    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : id_inst[11:7];
+    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : inst[11:7];
 
-
-    //TODO: wD选择的流水线化未完成
     always @(*) begin
         casex ({ld_st_flag, rf_wsel})
             {1'b0, `WB_ALU}: rf_wD = alu_c;
-            {1'b0, `WB_PC4}: rf_wD = id_pc + 32'h4;
+            {1'b0, `WB_PC4}: rf_wD = pc4;
             {1'b0, `WB_EXT}: rf_wD = ext;
-            {1'b1, 2'b??  }: rf_wD = wb_mext;
+            {1'b1, 2'b??  }: rf_wD = ram_ext;
             default        : rf_wD = 32'h0;
         endcase
     end
@@ -252,189 +246,7 @@ module cpu_core(
         inst_finished_r <= cpu_rst ? 1'b0 : inst_finished;
     end
 
-/*
-流水线寄存器
-共5级流水线,4个寄存器
-目前为理想形态,无数据与控制冒险
-*/
 
-// IF/ID
-    reg [31:0] id_pc;
-    reg [31:0] id_inst;
-    //pc4由pc自然生成
-    wire [31:0] if_pc = pc;
-    wire [31:0] if_inst = inst;
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) id_pc <= 32'h0;
-        else     id_pc <= if_pc;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) id_inst <= 32'h0;
-        else     id_inst <= if_inst;
-    end
-
-// ID/EX
-    reg [1:0] ex_npc_op;
-    reg [2:0] ex_ram_rop;
-    reg [3:0] ex_ram_wop;
-    reg [4:0] ex_alu_op;
-    reg [31:0] ex_alu_a;
-    reg [31:0] ex_alu_b;
-    reg [31:0] ex_rd2;
-    reg [31:0] ex_sext;
-    reg [31:0] ex_wd;   //在流水线中不断进行判断,最终到达WB阶段时获得最终的wData
-    reg        ex_rf_we;
-    reg [1:0]  ex_rf_wsel;
-    reg [4:0]  ex_wr;
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_npc_op <= 2'b0;
-        else     ex_npc_op <= npc_op;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_ram_rop <= 3'b0;
-        else     ex_ram_rop <= ram_rop;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_ram_wop <= 4'b0;
-        else     ex_ram_wop <= ram_wop;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_op <= 5'b0;
-        else     ex_alu_op <= alu_op;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_a <= 32'h0;
-        else     ex_alu_a <= alu_a;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_b <= 32'h0;
-        else     ex_alu_b <= alu_b;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rd2 <= 32'h0;
-        else     ex_rd2 <= rf_rd2;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_sext <= 32'h0;
-        else     ex_sext <= ext;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_wd <= 32'h0;
-        else begin
-            case (rf_wsel)
-                `WB_PC4: ex_wd <= id_pc + 32'h4;
-                `WB_EXT: ex_wd <= ext;
-                default: ex_wd <= 32'h0;
-            endcase
-        end
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rf_we <= 1'b0;
-        else     ex_rf_we <= rf_we;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rf_wsel <= 2'b0;
-        else     ex_rf_wsel <= rf_wsel;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) ex_wr <= 5'b0;
-        else     ex_wr <= id_inst[11:7];
-    end
-
-// EX/MEM
-    reg [2:0] mem_ram_rop;
-    reg [3:0] mem_ram_wop;
-    reg [31:0] mem_alu_c;
-    reg [31:0] mem_rd2;
-    reg [31:0] mem_wd;
-    reg        mem_rf_we;
-    reg [1:0]  mem_rf_wsel;
-    reg [4:0]  mem_wr;
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_ram_rop <= 3'h0;
-        else     mem_ram_rop <= ex_ram_rop;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_ram_wop <= 4'h0;
-        else     mem_ram_wop <= ex_ram_wop;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_alu_c <= 32'h0;
-        else     mem_alu_c <= alu_c;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_rd2 <= 32'h0;
-        else     mem_rd2 <= ex_rd2;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_wd <= 32'h0;
-        else     mem_wd <= (ex_rf_wsel == `WB_ALU) ? alu_c : ex_wd;
-    end
-
-        always @ (posedge clk or posedge rst) begin
-        if (rst) mem_rf_we <= 1'b0;
-        else     mem_rf_we <= ex_rf_we;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_rf_wsel <= 2'b0;
-        else     mem_rf_wsel <= ex_rf_wsel;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) mem_wr <= 5'b0;
-        else     mem_wr <= 
-    end
-
-// MEM/WB
-    // reg [31:0] wb_mext;
-    reg [31:0] wb_wd;
-    reg        wb_rf_we;
-    reg [1:0]  wb_rf_wsel;
-    reg [4:0]  wb_wr;
-
-    always @ (*) begin
-        wb_wd = ld_st_flag ? ram_ext : mem_wd;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) wb_rf_we <= 1'b0;
-        else     wb_rf_we <= mem_rf_we;
-    end
-
-    always @ (posedge clk or posedge rst) begin
-        if (rst) wb_rf_wsel <= 2'b0;
-        else     wb_rf_wsel <= mem_rf_wsel;
-    end
-
-    // always @ (posedge clk or posedge rst) begin
-    //     if (rst) wb_mext <= 32'h0;
-    //     else     wb_mext <= ram_ext;
-    // end
-
-    // always @ (posedge clk or posedge rst) begin
-    //     if (rst) wb_wd <= 32'h0;
-    //     else     wb_wd <= (mem_rf_wsel == `WB_RAM)
-    // end
 
     /********************* Your CPU ends here *********************/
 
