@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1,295.467 ns"></ZoomStartTime>
-      <ZoomEndTime time="1,444.668 ns"></ZoomEndTime>
-      <Cursor1Time time="1,320.000 ns"></Cursor1Time>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="601.319 ns"></ZoomEndTime>
+      <Cursor1Time time="1,383.999 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="234"></NameColumnWidth>
-      <ValueColumnWidth column_width="104"></ValueColumnWidth>
+      <NameColumnWidth column_width="230"></NameColumnWidth>
+      <ValueColumnWidth column_width="90"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="14" />
+   <WVObjectSize size="11" />
    <wvobject fp_name="/soc_simple_tb/DUT/sys_rst" type="logic">
       <obj_property name="ElementShortName">sys_rst</obj_property>
       <obj_property name="ObjectShortName">sys_rst</obj_property>
@@ -72,32 +72,20 @@
       <obj_property name="ElementShortName">ifetch_inst[31:0]</obj_property>
       <obj_property name="ObjectShortName">ifetch_inst[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_ren" type="array">
-      <obj_property name="ElementShortName">daccess_ren[3:0]</obj_property>
-      <obj_property name="ObjectShortName">daccess_ren[3:0]</obj_property>
+   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/wb_pc" type="array">
+      <obj_property name="ElementShortName">wb_pc[31:0]</obj_property>
+      <obj_property name="ObjectShortName">wb_pc[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_addr" type="array">
-      <obj_property name="ElementShortName">daccess_addr[31:0]</obj_property>
-      <obj_property name="ObjectShortName">daccess_addr[31:0]</obj_property>
+   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/rf_we1" type="logic">
+      <obj_property name="ElementShortName">rf_we1</obj_property>
+      <obj_property name="ObjectShortName">rf_we1</obj_property>
    </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_rvalid" type="logic">
-      <obj_property name="ElementShortName">daccess_rvalid</obj_property>
-      <obj_property name="ObjectShortName">daccess_rvalid</obj_property>
+   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/wb_wr" type="array">
+      <obj_property name="ElementShortName">wb_wr[4:0]</obj_property>
+      <obj_property name="ObjectShortName">wb_wr[4:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_rdata" type="array">
-      <obj_property name="ElementShortName">daccess_rdata[31:0]</obj_property>
-      <obj_property name="ObjectShortName">daccess_rdata[31:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_wen" type="array">
-      <obj_property name="ElementShortName">daccess_wen[3:0]</obj_property>
-      <obj_property name="ObjectShortName">daccess_wen[3:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_wdata" type="array">
-      <obj_property name="ElementShortName">daccess_wdata[31:0]</obj_property>
-      <obj_property name="ObjectShortName">daccess_wdata[31:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/daccess_wresp" type="logic">
-      <obj_property name="ElementShortName">daccess_wresp</obj_property>
-      <obj_property name="ObjectShortName">daccess_wresp</obj_property>
+   <wvobject fp_name="/soc_simple_tb/DUT/U_cpu/U_core/wb_wd" type="array">
+      <obj_property name="ElementShortName">wb_wd[31:0]</obj_property>
+      <obj_property name="ObjectShortName">wb_wd[31:0]</obj_property>
    </wvobject>
 </wave_config>

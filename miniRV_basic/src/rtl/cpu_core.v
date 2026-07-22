@@ -90,9 +90,15 @@ module cpu_core(
     assign ifetch_req  = first_req | inst_finished_r;
     assign ifetch_addr = pc;
 
+    // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
+    // 分支预测默认不跳转,若B型指令br为0则不需要重复跳转.
+    //TODO:在不考虑多周期指令的情况下,目前branch可以兼做flush_pipeline信号清除IF/ID和ID/EX流水线寄存器.
+    wire branch = ex_npc_op == `NPC_JALR | ex_npc_op == `NPC_JMP | ex_npc_op == `NPC_BRA & br;
+    wire npc_pc = branch ? ex_pc : pc;
+
     NPC U_NPC (
         .op         (ex_npc_op),
-        .pc         (pc),
+        .pc         (npc_pc),
         .offset     (npc_offset),
         .br         (br),
         .npc        (npc),
@@ -274,13 +280,15 @@ module cpu_core(
     wire [31:0] if_inst = inst;
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) id_pc <= 32'h0;
-        else     id_pc <= if_pc;
+        if (rst)         id_pc <= 32'h0;
+        else if (branch) id_pc <= 32'h0;
+        else             id_pc <= if_pc;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) id_inst <= 32'h0;
-        else     id_inst <= if_inst;
+        if (rst)         id_inst <= 32'h0;
+        else if (branch) id_inst <= 32'h0;
+        else             id_inst <= if_inst;
     end
 
 // ID/EX
@@ -300,52 +308,62 @@ module cpu_core(
     reg        ex_mul_div;
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_pc <= 32'h0;
-        else     ex_pc <= id_pc;
+        if (rst)         ex_pc <= 32'h0;
+        else if (branch) ex_pc <= 32'h0;
+        else             ex_pc <= id_pc;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_npc_op <= 2'b0;
-        else     ex_npc_op <= npc_op;
+        if (rst)         ex_npc_op <= 2'b0;
+        else if (branch) ex_npc_op <= 2'b0;
+        else             ex_npc_op <= npc_op;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_ram_rop <= 3'b0;
-        else     ex_ram_rop <= ram_rop;
+        if (rst)         ex_ram_rop <= 3'b0;
+        else if (branch) ex_ram_rop <= 3'b0;
+        else             ex_ram_rop <= ram_rop;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_ram_wop <= 4'b0;
-        else     ex_ram_wop <= ram_wop;
+        if (rst)         ex_ram_wop <= 4'b0;
+        else if (branch) ex_ram_wop <= 4'b0;
+        else             ex_ram_wop <= ram_wop;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_op <= 5'b0;
-        else     ex_alu_op <= alu_op;
+        if (rst)         ex_alu_op <= 5'b0;
+        else if (branch) ex_alu_op <= 5'b0;
+        else             ex_alu_op <= alu_op;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_a <= 32'h0;
-        else     ex_alu_a <= alu_a;
+        if (rst)         ex_alu_a <= 32'h0;
+        else if (branch) ex_alu_a <= 32'h0;
+        else             ex_alu_a <= alu_a;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_alu_b <= 32'h0;
-        else     ex_alu_b <= alu_b;
+        if (rst)         ex_alu_b <= 32'h0;
+        else if (branch) ex_alu_b <= 32'h0;
+        else             ex_alu_b <= alu_b;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rd2 <= 32'h0;
-        else     ex_rd2 <= rf_rd2;
+        if (rst)         ex_rd2 <= 32'h0;
+        else if (branch) ex_rd2 <= 32'h0;
+        else             ex_rd2 <= rf_rd2;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_sext <= 32'h0;
-        else     ex_sext <= ext;
+        if (rst)         ex_sext <= 32'h0;
+        else if (branch) ex_sext <= 32'h0;
+        else             ex_sext <= ext;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_wd <= 32'h0;
+        if (rst)         ex_wd <= 32'h0;
+        else if (branch) ex_wd <= 32'h0;
         else begin
             case (rf_wsel)
                 `WB_PC4: ex_wd <= id_pc + 32'h4;
@@ -356,23 +374,27 @@ module cpu_core(
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rf_we <= 1'b0;
-        else     ex_rf_we <= rf_we;
+        if (rst)         ex_rf_we <= 1'b0;
+        else if (branch) ex_rf_we <= 1'b0;
+        else             ex_rf_we <= rf_we;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_rf_wsel <= 2'b0;
-        else     ex_rf_wsel <= rf_wsel;
+        if (rst)         ex_rf_wsel <= 2'b0;
+        else if (branch) ex_rf_wsel <= 2'b0;
+        else             ex_rf_wsel <= rf_wsel;
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_wr <= 5'b0;
-        else     ex_wr <= id_inst[11:7];
+        if (rst)         ex_wr <= 5'b0;
+        else if (branch) ex_wr <= 5'b0;
+        else             ex_wr <= id_inst[11:7];
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) ex_mul_div <= 1'b0;
-        else     ex_mul_div <= is_mul_div;
+        if (rst)         ex_mul_div <= 1'b0;
+        else if (branch) ex_mul_div <= 1'b0;
+        else             ex_mul_div <= is_mul_div;
     end
 
 // EX/MEM
@@ -444,8 +466,9 @@ module cpu_core(
         else     wb_pc <= mem_pc;
     end
 
-    always @ (*) begin
-        wb_wd = ld_st_flag ? ram_ext : mem_wd;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_wd <= 32'h0;
+        else     wb_wd <= ld_st_flag ? ram_ext : mem_wd;
     end
 
     always @ (posedge clk or posedge rst) begin

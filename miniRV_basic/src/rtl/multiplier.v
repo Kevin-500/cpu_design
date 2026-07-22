@@ -37,7 +37,7 @@ module multiplier #(
             busy_reg <= 1'b0;
         end else if (start) begin
             busy_reg <= 1'b1;
-        end else if (count == C_WID'(WIDTH)) begin
+        end else if (count == WIDTH[5:0]) begin //原使用C_WID'(WIDTH)将32位整数WIDTH转化为C_WID相同位宽,但该特性在vivado中尚不支持,故直接截取WIDTH最后6位
             busy_reg <= 1'b0;
         end
     end
@@ -46,7 +46,7 @@ module multiplier #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             count <= {C_WID{1'b0}};
-        end else if (count == C_WID'(WIDTH)) begin  //共右移WIDTH次
+        end else if (count == WIDTH[5:0]) begin  //共右移WIDTH次
             count <= {C_WID{1'b0}};
         end else if (busy_reg) begin
             count <= count + 1'b1;
@@ -90,7 +90,7 @@ module multiplier #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             z <= {(2*WIDTH){1'b0}};
-        end else if (count == C_WID'(WIDTH)) begin
+        end else if (count == WIDTH[5:0]) begin
             z <= {p_reg, y_reg[WIDTH:1]};
         end
     end
