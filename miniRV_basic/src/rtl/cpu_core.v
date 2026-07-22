@@ -92,12 +92,16 @@ module cpu_core(
 
     // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
     // 分支预测默认不跳转,若B型指令br为0则不需要重复跳转.
+    // 假如跳转后pc与当前pc一致,则同样不需要跳转,如offset=4时,跳转地址=pc4地址.
     //TODO:在不考虑多周期指令的情况下,目前branch可以兼做flush_pipeline信号清除IF/ID和ID/EX流水线寄存器.
-    wire branch = ex_npc_op == `NPC_JALR | ex_npc_op == `NPC_JMP | ex_npc_op == `NPC_BRA & br;
-    wire npc_pc = branch ? ex_pc : pc;
+    wire branch = (ex_npc_op == `NPC_JALR & {alu_c[31:1], 1'b0} != id_pc)
+                | (ex_npc_op == `NPC_JMP & ex_sext != 32'h4)
+                | (ex_npc_op == `NPC_BRA & br & ex_sext != 32'h4);
+    wire [31:0] npc_pc = branch ? ex_pc : pc;
+    wire [1:0]  final_npc_op = branch ? ex_npc_op : `NPC_PC4;
 
     NPC U_NPC (
-        .op         (ex_npc_op),
+        .op         (final_npc_op),
         .pc         (npc_pc),
         .offset     (npc_offset),
         .br         (br),
@@ -181,11 +185,12 @@ module cpu_core(
     /***************************** EX *****************************/
 
     //目前尚未处理内存相关的数据冒险,仅有ALU型冒险的前递逻辑
-    assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? alu_c : (mem_rs1_hazard ? mem_alu_c : rf_rd1));
-    assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? alu_c : (mem_rs2_hazard ? mem_alu_c : rf_rd2));
+    //TODO:添加立即数的通路
+    assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? ex_forward : (mem_rs1_hazard ? mem_forward : rf_rd1));
+    assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? ex_forward : (mem_rs2_hazard ? mem_forward : rf_rd2));
     assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
 
-    //ALU型数据冒险:假设数据来自于ALU计算结果;
+    //非访存型数据冒险:假设数据来自于ALU计算结果或立即数
     //分为EX冒险和MEM冒险,有EX则优先EX,就近原则
     //EX冒险判断条件:(三个条件参考计组流水线处理器章节)
     wire ex_rs1_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[19:15]);
@@ -193,6 +198,14 @@ module cpu_core(
     //MEM冒险判断条件:(三个条件+无EX冒险)
     wire mem_rs1_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[19:15]) & !ex_rs1_hazard;
     wire mem_rs2_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[24:20]) & !ex_rs2_hazard;
+
+    wire [31:0] ex_forward  = {32{ex_rf_wsel == `WB_ALU}} & alu_c
+                            | {32{ex_rf_wsel == `WB_EXT}} & ex_sext
+                            | {32{ex_rf_wsel == `WB_PC4}} & (ex_pc + 32'h4);
+    
+    wire [31:0] mem_forward = {32{mem_rf_wsel == `WB_ALU}} & mem_alu_c
+                            | {32{mem_rf_wsel == `WB_EXT}} & mem_sext
+                            | {32{mem_rf_wsel == `WB_PC4}} & (mem_pc + 32'h4);
 
     //载入-使用型数据冒险:假设数据来自于写内存.
 
@@ -314,6 +327,7 @@ module cpu_core(
     reg [31:0] ex_alu_b;
     reg [31:0] ex_rd2;
     reg [31:0] ex_sext;
+    //TODO:删除wd信号,改为把所有信号都保留下来,方便处理forward,wd信号只在最终WB阶段判断生成.
     reg [31:0] ex_wd;   //在流水线中不断进行判断,最终到达WB阶段时获得最终的wData
     reg        ex_rf_we;
     reg [1:0]  ex_rf_wsel;
@@ -416,6 +430,7 @@ module cpu_core(
     reg [3:0] mem_ram_wop;
     reg [31:0] mem_alu_c;
     reg [31:0] mem_rd2;
+    reg [31:0] mem_sext;
     reg [31:0] mem_wd;
     reg        mem_rf_we;
     reg [1:0]  mem_rf_wsel;
@@ -444,6 +459,11 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_rd2 <= 32'h0;
         else     mem_rd2 <= ex_rd2;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_sext <= 32'h0;
+        else     mem_sext <= ex_sext;
     end
 
     always @ (posedge clk or posedge rst) begin

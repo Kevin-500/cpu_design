@@ -6,8 +6,8 @@
 `define PC_INIT_VAL 32'h0
 
 `define ALU_ADD     5'h00
-`define ALU_AND     5'h02
 `define ALU_SUB     5'h01
+`define ALU_AND     5'h02
 `define ALU_OR      5'h03
 `define ALU_XOR     5'h04
 `define ALU_SLL     5'h05
