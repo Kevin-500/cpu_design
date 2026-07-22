@@ -179,9 +179,22 @@ module cpu_core(
     end
 
     /***************************** EX *****************************/
-    assign alu_a = alua_sel ? id_pc  : rf_rd1;
-    assign alu_b = alub_sel ? ext : rf_rd2;
+
+    //目前尚未处理内存相关的数据冒险,仅有ALU型冒险的前递逻辑
+    assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? alu_c : (mem_rs1_hazard ? mem_alu_c : rf_rd1));
+    assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? alu_c : (mem_rs2_hazard ? mem_alu_c : rf_rd2));
     assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
+
+    //ALU型数据冒险:假设数据来自于ALU计算结果;
+    //分为EX冒险和MEM冒险,有EX则优先EX,就近原则
+    //EX冒险判断条件:(三个条件参考计组流水线处理器章节)
+    wire ex_rs1_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[19:15]);
+    wire ex_rs2_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[24:20]);
+    //MEM冒险判断条件:(三个条件+无EX冒险)
+    wire mem_rs1_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[19:15]) & !ex_rs1_hazard;
+    wire mem_rs2_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[24:20]) & !ex_rs2_hazard;
+
+    //载入-使用型数据冒险:假设数据来自于写内存.
 
     ALU U_ALU (
         .rst        (cpu_rst),
