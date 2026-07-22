@@ -22,6 +22,9 @@ module cpu_core(
     input  wire         daccess_wresp
 );
 
+    wire rst = cpu_rst;
+    wire clk = cpu_clk;
+
     // PC and NPC
     wire [31:0] pc;
     wire [31:0] npc;
@@ -154,11 +157,10 @@ module cpu_core(
     end
 
     // 遇到乘除法指令时，拉高mul_div_flag标志位，表示正在执行乘除法指令
-    // TODO:这个标志也要寄存
     assign is_mul_div = is_mul | is_div;
     always @(posedge cpu_clk or posedge cpu_rst) begin
         if      (cpu_rst)       mul_div_flag <= 1'b0;
-        else if (is_mul_div)    mul_div_flag <= 1'b1;
+        else if (ex_mul_div)    mul_div_flag <= 1'b1;
         else if (!mul_div_busy) mul_div_flag <= 1'b0;
     end
 
@@ -183,7 +185,7 @@ module cpu_core(
         .b          (ex_alu_b),
         .br         (br),
         .c          (alu_c),
-        .busy       (mul_div_busy)
+        .busy       (mul_div_busy)  //隔一个周期后高电平有效
     );
 
     /***************************** MEM *****************************/
@@ -228,25 +230,31 @@ module cpu_core(
     /***************************** WB *****************************/
     assign rf_we1 = ld_st_flag   & daccess_rvalid |                 // Load指令在读取到数据时写回
                     mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
-                    ifetch_valid & rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
+                    //TODO:ifetch_valid在流水线cpu中存在的必要性?
+                    ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div;   // 其他指令在到达WB阶段时写回
+                    //ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
 
-    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : id_inst[11:7];
+    assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : wb_wr;
 
 
     //TODO: wD选择的流水线化未完成
     always @(*) begin
-        casex ({ld_st_flag, rf_wsel})
-            {1'b0, `WB_ALU}: rf_wD = alu_c;
-            {1'b0, `WB_PC4}: rf_wD = id_pc + 32'h4;
-            {1'b0, `WB_EXT}: rf_wD = ext;
-            {1'b1, 2'b??  }: rf_wD = wb_mext;
-            default        : rf_wD = 32'h0;
-        endcase
+        rf_wD = wb_wd;
+        // casex ({ld_st_flag, rf_wsel})
+        //     {1'b0, `WB_ALU}: rf_wD = alu_c;
+        //     {1'b0, `WB_PC4}: rf_wD = id_pc + 32'h4;
+        //     {1'b0, `WB_EXT}: rf_wD = ext;
+        //     {1'b1, 2'b??  }: rf_wD = wb_wd;
+        //     default        : rf_wD = 32'h0;
+        // endcase
     end
 
     assign inst_finished = ld_st_flag   & ld_st_done    |           // 访存指令在读写完毕时执行完成
-                           mul_div_flag & !mul_div_busy |           // 乘除法指令在运算完毕时完成
-                           ifetch_valid & !is_ld_st & !is_mul_div;  // 其他指令单周期完成（即取到指令的同时执行完成）
+                            mul_div_flag & !mul_div_busy |           // 乘除法指令在运算完毕时完成
+                            //TODO:ifetch_valid在流水线cpu中存在的必要性?
+                            //猜测:
+                            ifetch_valid & !is_ld_st & !is_mul_div; //TODO: 理想流水线cpu无论如何都会在下一周期取指,因此无需上一条指令执行完毕即可
+                            // 其他指令单周期完成（即取到指令的同时执行完成）
 
     always @(posedge cpu_clk or posedge cpu_rst) begin
         inst_finished_r <= cpu_rst ? 1'b0 : inst_finished;
@@ -276,6 +284,7 @@ module cpu_core(
     end
 
 // ID/EX
+    reg [31:0] ex_pc;
     reg [1:0] ex_npc_op;
     reg [2:0] ex_ram_rop;
     reg [3:0] ex_ram_wop;
@@ -288,6 +297,12 @@ module cpu_core(
     reg        ex_rf_we;
     reg [1:0]  ex_rf_wsel;
     reg [4:0]  ex_wr;
+    reg        ex_mul_div;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_pc <= 32'h0;
+        else     ex_pc <= id_pc;
+    end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) ex_npc_op <= 2'b0;
@@ -355,7 +370,13 @@ module cpu_core(
         else     ex_wr <= id_inst[11:7];
     end
 
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ex_mul_div <= 1'b0;
+        else     ex_mul_div <= is_mul_div;
+    end
+
 // EX/MEM
+    reg [31:0] mem_pc;
     reg [2:0] mem_ram_rop;
     reg [3:0] mem_ram_wop;
     reg [31:0] mem_alu_c;
@@ -364,6 +385,11 @@ module cpu_core(
     reg        mem_rf_we;
     reg [1:0]  mem_rf_wsel;
     reg [4:0]  mem_wr;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_pc <= 32'h0;
+        else     mem_pc <= ex_pc;
+    end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_ram_rop <= 3'h0;
@@ -402,15 +428,21 @@ module cpu_core(
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_wr <= 5'b0;
-        else     mem_wr <= 
+        else     mem_wr <= ex_wr;
     end
 
 // MEM/WB
     // reg [31:0] wb_mext;
+    reg [31:0] wb_pc;
     reg [31:0] wb_wd;
     reg        wb_rf_we;
     reg [1:0]  wb_rf_wsel;
     reg [4:0]  wb_wr;
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_pc <= 32'h0;
+        else     wb_pc <= mem_pc;
+    end
 
     always @ (*) begin
         wb_wd = ld_st_flag ? ram_ext : mem_wd;
@@ -424,6 +456,11 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst) wb_rf_wsel <= 2'b0;
         else     wb_rf_wsel <= mem_rf_wsel;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_wr <= 5'b0;
+        else     wb_wr <= mem_wr;
     end
 
     // always @ (posedge clk or posedge rst) begin
@@ -449,12 +486,12 @@ module cpu_core(
     wire [31:0] debug_mem_waddr /* verilator public */ ;    // MEM阶段写访存时的写地址 (若mem_we为0，此项可为任意值)
     wire [31:0] debug_mem_wdata /* verilator public */ ;    // MEM阶段写访存时的写数据 (若mem_we为0，此项可为任意值)
 
-    assign debug_wb_pc    = pc;
+    assign debug_wb_pc    = wb_pc;
     assign debug_wb_rf_we = rf_we1;
-    assign debug_wb_rf_wR = rf_wR;
-    assign debug_wb_rf_wD = rf_wD;
+    assign debug_wb_rf_wR = wb_wr;
+    assign debug_wb_rf_wD = wb_wd;
 
-    assign debug_mem_pc    = pc;
+    assign debug_mem_pc    = mem_pc;
     assign debug_mem_we    = daccess_wen;
     assign debug_mem_waddr = daccess_addr;
     assign debug_mem_wdata = daccess_wdata;
