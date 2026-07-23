@@ -115,7 +115,7 @@ module cpu_core(
     PC U_PC (
         .clk        (cpu_clk),
         .rst        (cpu_rst),
-        .npc        (npc),
+        .npc        (pc_npc),
         .fetch      (inst_finished),
         .pc         (pc)
     );
