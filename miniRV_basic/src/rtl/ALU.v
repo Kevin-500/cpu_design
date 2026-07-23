@@ -11,7 +11,7 @@ module ALU (
     
     output reg  [31:0]  c,
     output reg          br,
-    output wire         busy
+    output wire         busy    //对于乘除法,busy从高电平回到低电平和c信号输出结果在同一周期发生
 );
 
     wire        mul_flag, mulu_flag;

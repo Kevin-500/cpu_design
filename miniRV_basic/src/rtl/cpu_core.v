@@ -100,6 +100,9 @@ module cpu_core(
     wire [31:0] npc_pc = branch ? ex_pc : pc;
     wire [1:0]  final_npc_op = branch ? ex_npc_op : `NPC_PC4;
 
+    // 流水线暂停时需要控制pc不变,即pc的输入npc为pc自身
+    wire [31:0] pc_npc = pause ? pc : npc;
+
     NPC U_NPC (
         .op         (final_npc_op),
         .pc         (npc_pc),
@@ -185,7 +188,6 @@ module cpu_core(
     /***************************** EX *****************************/
 
     //目前尚未处理内存相关的数据冒险,仅有ALU型冒险的前递逻辑
-    //TODO:添加立即数的通路
     assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? ex_forward : (mem_rs1_hazard ? mem_forward : rf_rd1));
     assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? ex_forward : (mem_rs2_hazard ? mem_forward : rf_rd2));
     assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
@@ -199,6 +201,7 @@ module cpu_core(
     wire mem_rs1_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[19:15]) & !ex_rs1_hazard;
     wire mem_rs2_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[24:20]) & !ex_rs2_hazard;
 
+    //除访存外的三个wd都可以前递
     wire [31:0] ex_forward  = {32{ex_rf_wsel == `WB_ALU}} & alu_c
                             | {32{ex_rf_wsel == `WB_EXT}} & ex_sext
                             | {32{ex_rf_wsel == `WB_PC4}} & (ex_pc + 32'h4);
@@ -263,7 +266,7 @@ module cpu_core(
     assign rf_we1 = ld_st_flag   & daccess_rvalid |                 // Load指令在读取到数据时写回
                     mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
                     //TODO:ifetch_valid在流水线cpu中存在的必要性?
-                    ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div;   // 其他指令在到达WB阶段时写回
+                    ifetch_valid & wb_rf_we & !is_ld_st & !ex_mul_div;   // 其他指令在到达WB阶段时写回
                     //ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
 
     assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : wb_wr;
@@ -298,6 +301,27 @@ module cpu_core(
 目前为理想形态,无数据与控制冒险
 */
 
+// 流水线暂停:暂停IF/ID和ID/EX,使其输入等于自身
+    wire pause = mul_div_pause | load_use_pause;
+    wire mul_div_pause = ex_mul_div & !(!mul_div_busy & mul_div_busy_r);
+    wire load_use_pause = 1'b0;//占位符
+
+    // always @ (*) begin
+    //     if (rst) mul_div_pause <= 1'b0;
+    //     else if (ex_mul_div & !mul_div_busy & mul_div_busy_r) mul_div_pause <= 1'b0;
+    //     else if (ex_mul_div) mul_div_pause <= 1'b1;
+    //     else mul_div_pause <= 1'b0;
+    // end
+    //由于乘除法第一个和最后一个周期都有busy=1'b0,因此关注前一个周期busy=1'b1,当前周期busy=1'b0的情况
+    reg mul_div_busy_r;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mul_div_busy_r <= 1'b0;
+        else     mul_div_busy_r <= mul_div_busy;
+    end
+
+
+
+
 // IF/ID
     reg [31:0] id_pc;
     reg [31:0] id_inst;
@@ -308,12 +332,14 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst)         id_pc <= 32'h0;
         else if (branch) id_pc <= 32'h0;
+        else if (pause)  id_pc <= id_pc;
         else             id_pc <= if_pc;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         id_inst <= 32'h0;
         else if (branch) id_inst <= 32'h0;
+        else if (pause)  id_inst <= id_inst;
         else             id_inst <= if_inst;
     end
 
@@ -337,60 +363,70 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_pc <= 32'h0;
         else if (branch) ex_pc <= 32'h0;
+        else if (pause)  ex_pc <= ex_pc;
         else             ex_pc <= id_pc;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_npc_op <= 2'b0;
         else if (branch) ex_npc_op <= 2'b0;
+        else if (pause)  ex_npc_op <= ex_npc_op;
         else             ex_npc_op <= npc_op;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_ram_rop <= 3'b0;
         else if (branch) ex_ram_rop <= 3'b0;
+        else if (pause)  ex_ram_rop <= ex_ram_rop;
         else             ex_ram_rop <= ram_rop;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_ram_wop <= 4'b0;
         else if (branch) ex_ram_wop <= 4'b0;
+        else if (pause)  ex_ram_wop <= ex_ram_wop;
         else             ex_ram_wop <= ram_wop;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_op <= 5'b0;
         else if (branch) ex_alu_op <= 5'b0;
+        else if (pause)  ex_alu_op <= ex_alu_op;
         else             ex_alu_op <= alu_op;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_a <= 32'h0;
         else if (branch) ex_alu_a <= 32'h0;
+        else if (pause)  ex_alu_a <= ex_alu_a;
         else             ex_alu_a <= alu_a;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_b <= 32'h0;
         else if (branch) ex_alu_b <= 32'h0;
+        else if (pause)  ex_alu_b <= ex_alu_b;
         else             ex_alu_b <= alu_b;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_rd2 <= 32'h0;
         else if (branch) ex_rd2 <= 32'h0;
+        else if (pause)  ex_rd2 <= ex_rd2;
         else             ex_rd2 <= rf_rd2;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_sext <= 32'h0;
         else if (branch) ex_sext <= 32'h0;
+        else if (pause)  ex_sext <= ex_sext;
         else             ex_sext <= ext;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_wd <= 32'h0;
         else if (branch) ex_wd <= 32'h0;
+        else if (pause)  ex_wd <= ex_wd;
         else begin
             case (rf_wsel)
                 `WB_PC4: ex_wd <= id_pc + 32'h4;
@@ -403,24 +439,28 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_rf_we <= 1'b0;
         else if (branch) ex_rf_we <= 1'b0;
+        else if (pause)  ex_rf_we <= ex_rf_we;
         else             ex_rf_we <= rf_we;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_rf_wsel <= 2'b0;
         else if (branch) ex_rf_wsel <= 2'b0;
+        else if (pause)  ex_rf_wsel <= ex_rf_wsel;
         else             ex_rf_wsel <= rf_wsel;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_wr <= 5'b0;
         else if (branch) ex_wr <= 5'b0;
+        else if (pause)  ex_wr <= ex_wr;
         else             ex_wr <= id_inst[11:7];
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_mul_div <= 1'b0;
         else if (branch) ex_mul_div <= 1'b0;
+        else if (pause)  ex_mul_div <= ex_mul_div;
         else             ex_mul_div <= is_mul_div;
     end
 
