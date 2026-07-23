@@ -302,6 +302,7 @@ module cpu_core(
 */
 
 // 流水线暂停:暂停IF/ID和ID/EX,使其输入等于自身
+//乘除法暂停时,EX/MEM寄存器的输入应当改为0,防止一直无限输入,乘除法一结束,数据尚未传到WB阶段,就已经激活了WB阶段的写回操作.
     wire pause = mul_div_pause | load_use_pause;
     wire mul_div_pause = ex_mul_div & !(!mul_div_busy & mul_div_busy_r);
     wire load_use_pause = 1'b0;//占位符
@@ -478,51 +479,61 @@ module cpu_core(
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_pc <= 32'h0;
+        else if (mul_div_pause) mem_pc <= 32'h0;
         else     mem_pc <= ex_pc;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_ram_rop <= 3'h0;
+        else if (mul_div_pause) mem_ram_rop <= 3'h0;
         else     mem_ram_rop <= ex_ram_rop;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_ram_wop <= 4'h0;
+        else if (mul_div_pause) mem_ram_wop <= 4'h0;
         else     mem_ram_wop <= ex_ram_wop;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_alu_c <= 32'h0;
+        else if (mul_div_pause) mem_alu_c <= 32'h0;
         else     mem_alu_c <= alu_c;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_rd2 <= 32'h0;
+        else if (mul_div_pause) mem_rd2 <= 32'h0;
         else     mem_rd2 <= ex_rd2;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_sext <= 32'h0;
+        else if (mul_div_pause) mem_sext <= 32'h0;
         else     mem_sext <= ex_sext;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_wd <= 32'h0;
+        else if (mul_div_pause) mem_wd <= 32'h0;
         else     mem_wd <= (ex_rf_wsel == `WB_ALU) ? alu_c : ex_wd;
     end
 
         always @ (posedge clk or posedge rst) begin
         if (rst) mem_rf_we <= 1'b0;
+        else if (mul_div_pause) mem_rf_we <= 1'b0;
         else     mem_rf_we <= ex_rf_we;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_rf_wsel <= 2'b0;
+        else if (mul_div_pause) mem_rf_wsel <= 2'b0;
         else     mem_rf_wsel <= ex_rf_wsel;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst) mem_wr <= 5'b0;
+        else if (mul_div_pause) mem_wr <= 5'b0;
         else     mem_wr <= ex_wr;
     end
 
