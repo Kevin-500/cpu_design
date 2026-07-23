@@ -278,11 +278,14 @@ module cpu_core(
     assign ld_st_done = daccess_rvalid | daccess_wresp;
 
     /***************************** WB *****************************/
-    assign rf_we1 = ld_st_flag   & daccess_rvalid |                 // Load指令在读取到数据时写回
-                    mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
-                    //TODO:ifetch_valid在流水线cpu中存在的必要性?
-                    ifetch_valid & wb_rf_we & !is_ld_st & !ex_mul_div;   // 其他指令在到达WB阶段时写回
-                    //ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
+    // assign rf_we1 = ld_st_flag   & daccess_rvalid |                 // Load指令在读取到数据时写回
+    //                 mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
+    //                 //TODO:ifetch_valid在流水线cpu中存在的必要性?
+    //                 ifetch_valid & wb_rf_we & !is_ld_st & !ex_mul_div;   // 其他指令在到达WB阶段时写回
+    //                 //ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
+
+    //假设只要到达WB阶段的we信号均有效
+    assign rf_we1 = wb_rf_we;
 
     assign rf_wR  = ld_st_flag | mul_div_flag ? rf_wR_r : wb_wr;
 
@@ -423,21 +426,21 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_op <= 5'b0;
         else if (branch) ex_alu_op <= 5'b0;
-        else if (pause)  ex_alu_op <= ex_alu_op;
+        else if (pause)  ex_alu_op <= 5'b0; //多周期指令时只输入一次alu信号即可
         else             ex_alu_op <= alu_op;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_a <= 32'h0;
         else if (branch) ex_alu_a <= 32'h0;
-        else if (pause)  ex_alu_a <= ex_alu_a;
+        else if (pause)  ex_alu_a <= 32'h0; //多周期指令时只输入一次alu信号即可
         else             ex_alu_a <= alu_a;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_alu_b <= 32'h0;
         else if (branch) ex_alu_b <= 32'h0;
-        else if (pause)  ex_alu_b <= ex_alu_b;
+        else if (pause)  ex_alu_b <= 32'h0; //多周期指令时只输入一次alu信号即可
         else             ex_alu_b <= alu_b;
     end
 
