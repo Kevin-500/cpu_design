@@ -78,9 +78,6 @@ module cpu_core(
     reg         ld_st_flag;
     // wire        ld_st_done;         // 访存完成的标志位信号
 
-    // wire        inst_finished;      // 指令执行完成的标志位信号
-    // reg         inst_finished_r;
-
     /***************************** IF *****************************/
     reg rst_r;
     wire first_req = rst_r & !cpu_rst;
@@ -93,9 +90,10 @@ module cpu_core(
     // wire resume_ifetch = ldst_done | mul_div_done;
     wire resume_ifetch = mul_div_done;
 
-    assign ifetch_req  = !pause_ifetch & (first_req  |    // 复位后首次取指
-                                        ifetch_valid |    // 上一条已取回，同时立即取下一条
-                                        resume_ifetch);   // 数据访存或乘除运算结束，继续取指
+    // assign ifetch_req  = !pause_ifetch & (first_req  |    // 复位后首次取指
+    //                                     ifetch_valid |    // 上一条已取回，同时立即取下一条
+    //                                     resume_ifetch);   // 数据访存或乘除运算结束，继续取指
+    assign ifetch_req = 1'b1;//假设一直有效
     assign ifetch_addr = pc;
 
     // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
@@ -132,7 +130,8 @@ module cpu_core(
     /***************************** ID *****************************/
     // 按照约定的时序，ifetch_inst只在ifetch_valid有效时有效，且它们仅有效1个时钟.
     // 此处是为了避免ifetch_valid撤销后，ifetch_inst发生变化从而导致指令执行出错.
-    assign inst = ifetch_valid ? ifetch_inst : 32'h13 /* NOP */ ;
+    // assign inst = ifetch_valid ? ifetch_inst : 32'h13 /* NOP */ ;
+    assign inst = ifetch_inst;
 
     Controller U_CU (
         // input
@@ -180,20 +179,7 @@ module cpu_core(
     end
 
     // 遇到乘除法指令时，拉高mul_div_flag标志位，表示正在执行乘除法指令
-    // assign is_mul_div = is_mul | is_div;
-    // always @(posedge cpu_clk or posedge cpu_rst) begin
-    //     if      (cpu_rst)       mul_div_flag <= 1'b0;
-    //     else if (ex_mul_div)    mul_div_flag <= 1'b1;
-    //     else if (!mul_div_busy) mul_div_flag <= 1'b0;
-    // end
-
-
-    // Read Here
-    // TODO:wr的流水线存储未完成.
-    // 访存、乘除法指令无法在1个时钟内执行完，故先把指令的目标寄存器缓存起来
-    // always @(posedge cpu_clk) begin
-    //     if (is_ld_st | is_mul_div) rf_wR_r <= id_inst[11:7];
-    // end
+    assign is_mul_div = is_mul | is_div;
 
     /***************************** EX *****************************/
 
@@ -254,6 +240,17 @@ module cpu_core(
     wire ld_st_wb_rs1_hazard = wb_rs1_hazard & wb_rf_wsel == `WB_RAM;
     wire ld_st_wb_rs2_hazard = wb_rs2_hazard & wb_rf_wsel == `WB_RAM;
 
+    //写内存-读内存数据冒险:先sw/sh/sb再lw/lh/lb
+    wire [31:0] id_ram_wdata;
+    assign id_ram_wdata = ld_st_ex_rs2_hazard ? ram_ext 
+                        : (ex_rs2_hazard ? ex_forward 
+                        : (ld_st_mem_rs2_hazard ? wb_wd
+                        : (mem_rs2_hazard ? mem_forward 
+                        : (ld_st_wb_rs2_hazard ? wb_wd
+                        : (wb_rs2_hazard ? wb_forward 
+                        : rf_rd2)))));
+    
+
     ALU U_ALU (
         .rst        (cpu_rst),
         .clk        (cpu_clk),
@@ -274,7 +271,7 @@ module cpu_core(
         .da_addr    (da_addr),
 
         .ram_wop    (mem_ram_wop),
-        .ram_wdata  (mem_rd2),
+        .ram_wdata  (ex_ram_wdata),
         .da_wen     (da_wen),
         .da_wdata   (da_wdata)
     );
@@ -282,12 +279,9 @@ module cpu_core(
     MEXT U_MEM_EXT (
         .op             (mem_ram_rop_r),
         .din            (daccess_rdata),
-        .byte_offs      (mem_alu_c[1:0]),
+        .byte_offs      (mext_offset),//使用保存的偏移量.
         .ext            (ram_ext)
     );
-
-    // always @(posedge cpu_clk) if (is_ld_st) alu_c_r   <= mem_alu_c;
-    // always @(posedge cpu_clk) if (is_ld_st) ram_rop_r <= mem_ram_rop;
 
     // Interface to Bus
     always @(posedge cpu_clk or posedge cpu_rst) begin
@@ -305,11 +299,6 @@ module cpu_core(
     // assign ld_st_done = daccess_rvalid | daccess_wresp;
 
     /***************************** WB *****************************/
-    // assign rf_we1 = ld_st_flag   & daccess_rvalid |                 // Load指令在读取到数据时写回
-    //                 mul_div_flag & !mul_div_busy  |                 // 乘除法指令在运算完成时写回
-    //                 //TODO:ifetch_valid在流水线cpu中存在的必要性?
-    //                 ifetch_valid & wb_rf_we & !is_ld_st & !ex_mul_div;   // 其他指令在到达WB阶段时写回
-    //                 //ifetch_valid & wb_rf_we & !is_ld_st & !is_mul_div; // 其他指令在取到指令时写回
 
     //假设只要到达WB阶段的we信号均有效
     assign rf_we1 = wb_rf_we;
@@ -320,25 +309,7 @@ module cpu_core(
     //TODO: wD选择的流水线化未完成
     always @(*) begin
         rf_wD = wb_wd;
-        // casex ({ld_st_flag, rf_wsel})
-        //     {1'b0, `WB_ALU}: rf_wD = alu_c;
-        //     {1'b0, `WB_PC4}: rf_wD = id_pc + 32'h4;
-        //     {1'b0, `WB_EXT}: rf_wD = ext;
-        //     {1'b1, 2'b??  }: rf_wD = wb_wd;
-        //     default        : rf_wD = 32'h0;
-        // endcase
     end
-
-    // assign inst_finished = ld_st_flag   & ld_st_done    |           // 访存指令在读写完毕时执行完成
-    //                         mul_div_flag & !mul_div_busy |           // 乘除法指令在运算完毕时完成
-    //                         //TODO:ifetch_valid在流水线cpu中存在的必要性?
-    //                         //猜测:
-    //                         ifetch_valid & !is_ld_st & !is_mul_div; //TODO: 理想流水线cpu无论如何都会在下一周期取指,因此无需上一条指令执行完毕即可
-    //                         // 其他指令单周期完成（即取到指令的同时执行完成）
-
-    // always @(posedge cpu_clk or posedge cpu_rst) begin
-    //     inst_finished_r <= cpu_rst ? 1'b0 : inst_finished;
-    // end
 
 /*
 流水线寄存器
@@ -353,7 +324,7 @@ module cpu_core(
     wire mul_div_done = !mul_div_busy & mul_div_busy_r;
     wire mul_div_pause = ex_mul_div & !mul_div_done;
     wire ld_st_done = daccess_rvalid | daccess_wresp;
-    wire ld_st_pause = (ex_ram_rop | ex_ram_wop | is_ld_st | ld_st_flag) & !ld_st_done; //从ex阶段就开始暂停,规避mem阶段访存且ex阶段乘除法的复杂情况.
+    wire ld_st_pause = ((ex_ram_rop != 3'b0) | (ex_ram_wop != 4'b0) | is_ld_st | ld_st_flag) & !ld_st_done; //从ex阶段就开始暂停,规避mem阶段访存且ex阶段乘除法的复杂情况.
 
 
     //由于乘除法第一个和最后一个周期都有busy=1'b0,因此关注前一个周期busy=1'b1,当前周期busy=1'b0的情况
@@ -361,6 +332,13 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst) mul_div_busy_r <= 1'b0;
         else     mul_div_busy_r <= mul_div_busy;
+    end
+
+    //访存暂停时,offset值由alu_c给出,因此需要一个寄存器来保存这个偏移量
+    reg [1:0] mext_offset;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mext_offset <= 2'b0;
+        else if ((ex_ram_rop != 3'b0) | (ex_ram_wop != 4'b0)) mext_offset <= alu_c;
     end
 
 
@@ -375,9 +353,9 @@ module cpu_core(
     reg [31:0] if_inst_pause;
     always @ (posedge clk or posedge rst) begin
         if (rst) if_inst_pause <= 32'h0;
-        else if (ex_ram_rop | ex_ram_wop) if_inst_pause <= inst;
+        else if (ex_ram_rop | ex_ram_wop | (mul_div_pause & !mul_div_busy)) if_inst_pause <= inst;
     end
-    wire [31:0] if_inst = ld_st_done ? if_inst_pause : inst;
+    wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
 
 
     reg branch_r;
@@ -419,7 +397,7 @@ module cpu_core(
     reg [4:0] ex_alu_op;
     reg [31:0] ex_alu_a;
     reg [31:0] ex_alu_b;
-    reg [31:0] ex_rd2;
+    reg [31:0] ex_ram_wdata;
     reg [31:0] ex_sext;
     //TODO:删除wd信号,改为把所有信号都保留下来,方便处理forward,wd信号只在最终WB阶段判断生成.
     reg [31:0] ex_wd;   //在流水线中不断进行判断,最终到达WB阶段时获得最终的wData
@@ -485,11 +463,11 @@ module cpu_core(
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst)         ex_rd2 <= 32'h0;
-        else if (branch) ex_rd2 <= 32'h0;
-        else if (pause)  ex_rd2 <= ex_rd2;
-        // else if (ld_st_pause) ex_rd2 <= 32'h0;
-        else             ex_rd2 <= rf_rd2;
+        if (rst)         ex_ram_wdata <= 32'h0;
+        else if (branch) ex_ram_wdata <= 32'h0;
+        else if (pause)  ex_ram_wdata <= ex_ram_wdata;
+        // else if (ld_st_pause) ex_ram_wdata <= 32'h0;
+        else             ex_ram_wdata <= id_ram_wdata;
     end
 
     always @ (posedge clk or posedge rst) begin
@@ -551,7 +529,7 @@ module cpu_core(
     reg [2:0] mem_ram_rop;
     reg [3:0] mem_ram_wop;
     reg [31:0] mem_alu_c;
-    reg [31:0] mem_rd2;
+    reg [31:0] mem_ram_wdata;
     reg [31:0] mem_sext;
     reg [31:0] mem_wd;
     reg        mem_rf_we;
@@ -590,9 +568,9 @@ module cpu_core(
     end
 
     always @ (posedge clk or posedge rst) begin
-        if (rst) mem_rd2 <= 32'h0;
-        else if (mul_div_pause) mem_rd2 <= 32'h0;
-        else     mem_rd2 <= ex_rd2;
+        if (rst) ex_ram_wdata <= 32'h0;
+        else if (mul_div_pause) ex_ram_wdata <= 32'h0;
+        else     ex_ram_wdata <= ex_ram_wdata;
     end
 
     always @ (posedge clk or posedge rst) begin
