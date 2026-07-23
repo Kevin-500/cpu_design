@@ -87,7 +87,15 @@ module cpu_core(
     always @(posedge cpu_clk) rst_r <= cpu_rst;
 
     // 复位信号发生边沿变化时首次取指; 当前指令执行完毕后取下一条指令
-    assign ifetch_req  = first_req | inst_finished_r;
+    //修改流水线cpu取指令逻辑
+    wire pause_ifetch   = //(ldst_suspend | is_ld_st | ex_ld_st) & !ldst_done |
+                        (mul_div_pause | is_mul_div) & !mul_div_done;
+    // wire resume_ifetch = ldst_done | mul_div_done;
+    wire resume_ifetch = mul_div_done;
+
+    assign ifetch_req  = !pause_ifetch & (first_req  |    // 复位后首次取指
+                                        ifetch_valid |    // 上一条已取回，同时立即取下一条
+                                        resume_ifetch);   // 数据访存或乘除运算结束，继续取指
     assign ifetch_addr = pc;
 
     // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
@@ -188,18 +196,21 @@ module cpu_core(
     /***************************** EX *****************************/
 
     //目前尚未处理内存相关的数据冒险,仅有ALU型冒险的前递逻辑
-    assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? ex_forward : (mem_rs1_hazard ? mem_forward : rf_rd1));
-    assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? ex_forward : (mem_rs2_hazard ? mem_forward : rf_rd2));
+    assign alu_a = alua_sel ? id_pc  : (ex_rs1_hazard ? ex_forward : (mem_rs1_hazard ? mem_forward : (wb_rs1_hazard ? wb_forward : rf_rd1)));
+    assign alu_b = alub_sel ? ext : (ex_rs2_hazard ? ex_forward : (mem_rs2_hazard ? mem_forward : (wb_rs2_hazard ? wb_forward : rf_rd2)));
     assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
 
     //非访存型数据冒险:假设数据来自于ALU计算结果或立即数
-    //分为EX冒险和MEM冒险,有EX则优先EX,就近原则
+    //分为EX冒险和MEM冒险和WB冒险,有EX则优先EX,就近原则
     //EX冒险判断条件:(三个条件参考计组流水线处理器章节)
     wire ex_rs1_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[19:15]);
     wire ex_rs2_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[24:20]);
     //MEM冒险判断条件:(三个条件+无EX冒险)
-    wire mem_rs1_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[19:15]) & !ex_rs1_hazard;
-    wire mem_rs2_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[24:20]) & !ex_rs2_hazard;
+    wire mem_rs1_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[19:15]);
+    wire mem_rs2_hazard = mem_rf_we & (mem_wr != 5'b0) & (mem_wr == id_inst[24:20]);
+    //WB冒险判定条件
+    wire wb_rs1_hazard = wb_rf_we & (wb_wr != 5'b0) & (wb_wr == id_inst[19:15]);
+    wire wb_rs2_hazard = wb_rf_we & (wb_wr != 5'b0) & (wb_wr == id_inst[24:20]);
 
     //除访存外的三个wd都可以前递
     wire [31:0] ex_forward  = {32{ex_rf_wsel == `WB_ALU}} & alu_c
@@ -209,6 +220,10 @@ module cpu_core(
     wire [31:0] mem_forward = {32{mem_rf_wsel == `WB_ALU}} & mem_alu_c
                             | {32{mem_rf_wsel == `WB_EXT}} & mem_sext
                             | {32{mem_rf_wsel == `WB_PC4}} & (mem_pc + 32'h4);
+
+    wire [31:0] wb_forward  = {32{wb_rf_wsel == `WB_ALU}} & wb_alu_c
+                            | {32{wb_rf_wsel == `WB_EXT}} & wb_sext
+                            | {32{wb_rf_wsel == `WB_PC4}} & (wb_pc + 32'h4);
 
     //载入-使用型数据冒险:假设数据来自于写内存.
 
@@ -304,7 +319,8 @@ module cpu_core(
 // 流水线暂停:暂停IF/ID和ID/EX,使其输入等于自身
 //乘除法暂停时,EX/MEM寄存器的输入应当改为0,防止一直无限输入,乘除法一结束,数据尚未传到WB阶段,就已经激活了WB阶段的写回操作.
     wire pause = mul_div_pause | load_use_pause;
-    wire mul_div_pause = ex_mul_div & !(!mul_div_busy & mul_div_busy_r);
+    wire mul_div_done = !mul_div_busy & mul_div_busy_r;
+    wire mul_div_pause = ex_mul_div & !mul_div_done;
     wire load_use_pause = 1'b0;//占位符
 
     // always @ (*) begin
@@ -327,19 +343,34 @@ module cpu_core(
     reg [31:0] id_pc;
     reg [31:0] id_inst;
     //pc4由pc自然生成
-    wire [31:0] if_pc = pc;
     wire [31:0] if_inst = inst;
+    reg branch_r;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) branch_r <= 1'b0;
+        else     branch_r <= branch;
+    end
+
+    //由于pc到IF/ID只需要一个周期,而pc到ifetch再到IF/ID需要两个周期,因此加一层缓冲
+    reg [31:0] if_pc_r;
+    always @ (posedge clk or posedge rst) begin
+        if (rst)         if_pc_r <= 32'h0;
+        else if (branch) if_pc_r <= 32'h0;
+        else if (pause)  if_pc_r <= if_pc_r;
+        else             if_pc_r <= pc;
+    end
+
+    //此外,if_inst由于直接从取值模块中连出,无法清零,因此取一个branch_r信号,在下一个周期给id_inst清零.
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         id_pc <= 32'h0;
         else if (branch) id_pc <= 32'h0;
         else if (pause)  id_pc <= id_pc;
-        else             id_pc <= if_pc;
+        else             id_pc <= if_pc_r;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         id_inst <= 32'h0;
-        else if (branch) id_inst <= 32'h0;
+        else if (branch | branch_r) id_inst <= 32'h0;
         else if (pause)  id_inst <= id_inst;
         else             id_inst <= if_inst;
     end
@@ -540,6 +571,8 @@ module cpu_core(
 // MEM/WB
     // reg [31:0] wb_mext;
     reg [31:0] wb_pc;
+    reg [31:0] wb_alu_c;
+    reg [31:0] wb_sext;
     reg [31:0] wb_wd;
     reg        wb_rf_we;
     reg [1:0]  wb_rf_wsel;
@@ -548,6 +581,16 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst) wb_pc <= 32'h0;
         else     wb_pc <= mem_pc;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_alu_c <= 32'h0;
+        else     wb_alu_c <= mem_alu_c;
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wb_sext <= 32'h0;
+        else     wb_sext <= mem_sext;
     end
 
     always @ (posedge clk or posedge rst) begin
