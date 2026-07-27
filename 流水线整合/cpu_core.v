@@ -89,6 +89,7 @@ module cpu_core(
     wire [1:0]  final_npc_op = branch ? ex_npc_op : `NPC_PC4;
 
     // 流水线暂停时需要控制pc不变,即pc的输入npc为pc自身
+    // pc_npc由于branch变为ex_pc,此时由于ICache正在读取指令,不会接受外部信号,导致branch信号被忽视
     wire [31:0] pc_npc = (pause | !ifetch_valid) ? pc : npc;
 
     NPC U_NPC (
@@ -335,11 +336,23 @@ module cpu_core(
     end
     wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
 
+    reg [31:0] if_inst_buf;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) if_inst_buf <= 32'h0;
+        else if (ifetch_valid) if_inst_buf <= if_inst;
+    end
+
 
     reg branch_r;
     always @ (posedge clk or posedge rst) begin
         if (rst) branch_r <= 1'b0;
         else     branch_r <= branch;
+    end
+
+    reg ifetch_valid_r;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ifetch_valid_r <= 1'b0;
+        else     ifetch_valid_r <= ifetch_valid;
     end
 
     //由于pc到IF/ID只需要一个周期,而pc到ifetch再到IF/ID需要两个周期,因此加一层缓冲,确保同周期到达IF/ID寄存器
@@ -357,7 +370,7 @@ module cpu_core(
         if (rst)         id_pc <= 32'h0;
         else if (branch) id_pc <= 32'h0;
         else if (pause)  id_pc <= id_pc;
-        else if (ifetch_valid) id_pc <= if_pc_r;
+        else if (ifetch_valid_r) id_pc <= if_pc_r;
         else             id_pc <= 32'h0;
     end
 
@@ -365,7 +378,7 @@ module cpu_core(
         if (rst)         id_inst <= 32'h0;
         else if (branch | branch_r) id_inst <= 32'h0;
         else if (pause)  id_inst <= id_inst;
-        else if (ifetch_valid) id_inst <= if_inst;
+        else if (ifetch_valid_r) id_inst <= if_inst_buf;
         else             id_inst <= 32'h0;
     end
 
