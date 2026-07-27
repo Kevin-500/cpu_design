@@ -92,6 +92,28 @@ module cpu_core(
     // pc_npc由于branch变为ex_pc,此时由于ICache正在读取指令,不会接受外部信号,导致branch信号被忽视
     wire [31:0] pc_npc = (pause | !ifetch_valid) ? pc : npc;
 
+    // 原始逻辑:ex阶段判断需要branch时,pc信号生成后立刻传递给ICache
+    // 加入Cache后的问题:此时Cache状态机还未恢复到IDLE,因此输入的信号会被无视
+    // 解决:加入寄存器,保存到Cache恢复IDLE之后,再将这些信号传递给Cache
+
+    // 表示从计算出需要branch后到上一条(错误的)指令从ICache取指完毕为止
+    reg wait_icache;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wait_icache <= 1'b0;
+        else if (branch) wait_icache <= 1'b1;
+        else if (ifetch_valid) wait_icache <= 1'b0;
+    end
+
+    // 表示
+    reg [31:0] pc_wait_icache;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) pc_wait_icache <= 32'h0;
+        else if (branch) pc_wait_icache <= npc;
+        else if (ifetch_valid & !wait_icache) pc_wait_icache <= 32'h0;
+        // 第一个ifetch_valid是取的上一条(错误的)指令,因此pc_wait_icache需要保留到正确的指令取指完毕
+    end
+
+
     NPC U_NPC (
         .op         (final_npc_op),
         .pc         (npc_pc),
@@ -101,12 +123,15 @@ module cpu_core(
         .pc4        (pc4)
     );
 
+
+    wire [31:0] pc_pc;
+    assign pc = pc_wait_icache != 32'h0 ? pc_wait_icache : pc_pc; 
     PC U_PC (
         .clk        (cpu_clk),
         .rst        (cpu_rst),
         .npc        (pc_npc),
         .fetch      (1'b1),    //fetch原本用于在单周期cpu中确定指令是否执行完毕,而在流水线cpu中,指令是否执行完毕与pc是否步进无关,因此改为1'b1
-        .pc         (pc)
+        .pc         (pc_pc)
     );
     
     /***************************** ID *****************************/
@@ -332,14 +357,14 @@ module cpu_core(
     reg [31:0] if_inst_pause;
     always @ (posedge clk or posedge rst) begin
         if (rst) if_inst_pause <= 32'h0;
-        else if (ifetch_valid & (ex_ram_rop | ex_ram_wop | (mul_div_pause & !mul_div_busy))) if_inst_pause <= inst;
+        else if ((ifetch_valid & !wait_icache) & (ex_ram_rop | ex_ram_wop | (mul_div_pause & !mul_div_busy))) if_inst_pause <= inst;
     end
     wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
 
     reg [31:0] if_inst_buf;
     always @ (posedge clk or posedge rst) begin
         if (rst) if_inst_buf <= 32'h0;
-        else if (ifetch_valid) if_inst_buf <= if_inst;
+        else if (ifetch_valid & !wait_icache) if_inst_buf <= if_inst;
     end
 
 
@@ -352,7 +377,7 @@ module cpu_core(
     reg ifetch_valid_r;
     always @ (posedge clk or posedge rst) begin
         if (rst) ifetch_valid_r <= 1'b0;
-        else     ifetch_valid_r <= ifetch_valid;
+        else     ifetch_valid_r <= ifetch_valid & !wait_icache;
     end
 
     //由于pc到IF/ID只需要一个周期,而pc到ifetch再到IF/ID需要两个周期,因此加一层缓冲,确保同周期到达IF/ID寄存器
@@ -361,7 +386,7 @@ module cpu_core(
         if (rst)         if_pc_r <= 32'h0;
         else if (branch) if_pc_r <= 32'h0;
         else if (pause)  if_pc_r <= if_pc_r;
-        else if (ifetch_valid) if_pc_r <= pc;
+        else if (ifetch_valid & !wait_icache) if_pc_r <= pc;
     end
 
     //if_inst由于直接从取值模块中连出,无法清零,因此取一个branch_r信号,在下一个周期给id_inst清零.
