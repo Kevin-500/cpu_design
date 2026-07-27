@@ -89,7 +89,30 @@ module cpu_core(
     wire [1:0]  final_npc_op = branch ? ex_npc_op : `NPC_PC4;
 
     // 流水线暂停时需要控制pc不变,即pc的输入npc为pc自身
-    wire [31:0] pc_npc = pause ? pc : npc;
+    // pc_npc由于branch变为ex_pc,此时由于ICache正在读取指令,不会接受外部信号,导致branch信号被忽视
+    wire [31:0] pc_npc = (pre_pause | pause | !ifetch_valid) ? pc : npc;
+
+    // 原始逻辑:ex阶段判断需要branch时,pc信号生成后立刻传递给ICache
+    // 加入Cache后的问题:此时Cache状态机还未恢复到IDLE,因此输入的信号会被无视
+    // 解决:加入寄存器,保存到Cache恢复IDLE之后,再将这些信号传递给Cache
+
+    // 表示从计算出需要branch后到上一条(错误的)指令从ICache取指完毕为止
+    reg wait_icache;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) wait_icache <= 1'b0;
+        else if (branch) wait_icache <= 1'b1;
+        else if (ifetch_valid) wait_icache <= 1'b0;
+    end
+
+    // 表示
+    reg [31:0] pc_wait_icache;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) pc_wait_icache <= 32'h0;
+        else if (branch) pc_wait_icache <= npc;
+        else if (ifetch_valid & !wait_icache) pc_wait_icache <= 32'h0;
+        // 第一个ifetch_valid是取的上一条(错误的)指令,因此pc_wait_icache需要保留到正确的指令取指完毕
+    end
+
 
     NPC U_NPC (
         .op         (final_npc_op),
@@ -100,12 +123,15 @@ module cpu_core(
         .pc4        (pc4)
     );
 
+
+    wire [31:0] pc_pc;
+    assign pc = pc_wait_icache != 32'h0 ? pc_wait_icache : pc_pc; 
     PC U_PC (
         .clk        (cpu_clk),
         .rst        (cpu_rst),
         .npc        (pc_npc),
         .fetch      (1'b1),    //fetch原本用于在单周期cpu中确定指令是否执行完毕,而在流水线cpu中,指令是否执行完毕与pc是否步进无关,因此改为1'b1
-        .pc         (pc)
+        .pc         (pc_pc)
     );
     
     /***************************** ID *****************************/
@@ -302,6 +328,8 @@ module cpu_core(
 //乘除法暂停时,EX/MEM寄存器的输入应当改为0,防止一直无限输入,乘除法一结束,数据尚未传到WB阶段,就已经激活了WB阶段的写回操作.
 //访存暂停时,ID/EX寄存器中数值清零,防止解除暂停后重复执行
     wire pause = mul_div_pause | ld_st_pause;
+// 在ID阶段的预暂停,负责提前暂停指令地址相关的数据,在流水线加入ICache后由于ICache时序原因,原本从ex阶段暂停会让pc错误停留在下下个指令地址处,漏掉一个指令.
+    wire pre_pause = is_mul_div | (ram_rop != 3'b0 | ram_wop != 4'b0);
     wire mul_div_done = !mul_div_busy & mul_div_busy_r;
     wire mul_div_pause = ex_mul_div & !mul_div_done;
     wire ld_st_done = daccess_rvalid | daccess_wresp;
@@ -327,13 +355,13 @@ module cpu_core(
     reg [31:0] id_inst;
     //pc4由pc自然生成
     
-    //由于inst本身没有缓存功能,因此当ld_st_pause时额外用一个寄存器来寄存信号
-    reg [31:0] if_inst_pause;
+    wire [31:0] if_inst = inst;
+
+    reg [31:0] if_inst_buf;
     always @ (posedge clk or posedge rst) begin
-        if (rst) if_inst_pause <= 32'h0;
-        else if (ex_ram_rop | ex_ram_wop | (mul_div_pause & !mul_div_busy)) if_inst_pause <= inst;
+        if (rst) if_inst_buf <= 32'h0;
+        else if (ifetch_valid & !wait_icache) if_inst_buf <= if_inst;
     end
-    wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
 
 
     reg branch_r;
@@ -342,13 +370,19 @@ module cpu_core(
         else     branch_r <= branch;
     end
 
+    reg ifetch_valid_r;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) ifetch_valid_r <= 1'b0;
+        else     ifetch_valid_r <= ifetch_valid & !wait_icache;
+    end
+
     //由于pc到IF/ID只需要一个周期,而pc到ifetch再到IF/ID需要两个周期,因此加一层缓冲,确保同周期到达IF/ID寄存器
     reg [31:0] if_pc_r;
     always @ (posedge clk or posedge rst) begin
         if (rst)         if_pc_r <= 32'h0;
         else if (branch) if_pc_r <= 32'h0;
         else if (pause)  if_pc_r <= if_pc_r;
-        else             if_pc_r <= pc;
+        else if (ifetch_valid & !wait_icache) if_pc_r <= pc;
     end
 
     //if_inst由于直接从取值模块中连出,无法清零,因此取一个branch_r信号,在下一个周期给id_inst清零.
@@ -357,14 +391,16 @@ module cpu_core(
         if (rst)         id_pc <= 32'h0;
         else if (branch) id_pc <= 32'h0;
         else if (pause)  id_pc <= id_pc;
-        else             id_pc <= if_pc_r;
+        else if (ifetch_valid_r & !mul_div_done & !ld_st_done) id_pc <= if_pc_r;
+        else             id_pc <= 32'h0;
     end
 
     always @ (posedge clk or posedge rst) begin
         if (rst)         id_inst <= 32'h0;
         else if (branch | branch_r) id_inst <= 32'h0;
         else if (pause)  id_inst <= id_inst;
-        else             id_inst <= if_inst;
+        else if (ifetch_valid_r & !mul_div_done & !ld_st_done) id_inst <= if_inst_buf;
+        else             id_inst <= 32'h0;
     end
 
 // ID/EX
