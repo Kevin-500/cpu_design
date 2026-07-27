@@ -103,6 +103,7 @@ module cpu_core(
     reg        idex_regwrite;
     reg [1:0]  idex_wb_sel;
     reg        idex_is_md;
+    reg        md_warmup;
     reg        md_started;
 
     /* --------------------------- EX / MEM --------------------------- */
@@ -179,7 +180,17 @@ module cpu_core(
 
     wire [31:0] ex_alu_a = idex_alua_sel ? idex_pc : ex_rs1_forwarded;
     wire [31:0] ex_alu_b = idex_alub_sel ? idex_imm : ex_rs2_forwarded;
-    wire [4:0] alu_op_to_unit = (idex_is_md && md_started) ? `ALU_ADD : idex_alu_op;
+    /* A load response can reach the forwarding mux one cycle after a
+       multiply/divide enters ID/EX.  Give the operands one full cycle to
+       settle before pulsing the multi-cycle unit's start input. */
+    wire md_waiting_for_load = exmem_valid && exmem_is_load &&
+        exmem_regwrite && (exmem_rd != 5'h0) && !daccess_rvalid &&
+        ((exmem_rd == idex_rs1) || (exmem_rd == idex_rs2));
+    wire md_operands_ready = !md_waiting_for_load;
+    wire md_start = idex_is_md && !md_started && md_warmup &&
+                    md_operands_ready;
+    wire [4:0] alu_op_to_unit = idex_is_md ?
+        (md_start ? idex_alu_op : `ALU_ADD) : idex_alu_op;
     wire [31:0] ex_alu_result;
     wire ex_branch_condition;
     wire alu_busy;
@@ -234,6 +245,7 @@ module cpu_core(
             idex_regwrite    <= 1'b0;
             idex_wb_sel      <= `WB_ALU;
             idex_is_md       <= 1'b0;
+            md_warmup        <= 1'b0;
             md_started       <= 1'b0;
             exmem_valid      <= 1'b0;
             exmem_pc         <= 32'h0;
@@ -286,9 +298,31 @@ module cpu_core(
                 mem_request_sent <= 1'b0;
             end
 
-            /* Start a multi-cycle operation once and hold ID/EX until done. */
-            if (idex_valid && idex_is_md && !md_started)
-                md_started <= 1'b1;
+            /* A stalled ID/EX instruction can outlive a one-cycle forwarding
+               opportunity.  Absorb forwarded values into its operand
+               registers so branches, stores, and multi-cycle operations do
+               not fall back to the stale values captured in ID. */
+            if (idex_valid && !ex_fire) begin
+                if (exmem_forward_valid && (exmem_rd == idex_rs1))
+                    idex_rs1_value <= exmem_result;
+                else if (memwb_forward_valid && (memwb_rd == idex_rs1))
+                    idex_rs1_value <= memwb_value;
+                if (exmem_forward_valid && (exmem_rd == idex_rs2))
+                    idex_rs2_value <= exmem_result;
+                else if (memwb_forward_valid && (memwb_rd == idex_rs2))
+                    idex_rs2_value <= memwb_value;
+            end
+
+            /* Hold ID/EX for one operand-settling cycle, then start the
+               multi-cycle operation exactly once. */
+            if (idex_valid && idex_is_md && !md_started) begin
+                if (!md_warmup)
+                    md_warmup <= 1'b1;
+                else if (md_operands_ready) begin
+                    md_warmup <= 1'b0;
+                    md_started <= 1'b1;
+                end
+            end
 
             /* EX advances when its result is complete and MEM can accept it. */
             if (ex_fire) begin
@@ -304,6 +338,7 @@ module cpu_core(
                 exmem_wb_sel <= idex_wb_sel;
                 mem_request_sent <= 1'b0;
                 idex_valid <= 1'b0;
+                md_warmup <= 1'b0;
                 md_started <= 1'b0;
             end
 
@@ -326,6 +361,7 @@ module cpu_core(
                 idex_regwrite <= id_rf_we;
                 idex_wb_sel <= id_rf_wsel;
                 idex_is_md <= id_is_mul || id_is_div;
+                md_warmup <= 1'b0;
                 md_started <= 1'b0;
                 ifid_valid <= 1'b0;
             end
