@@ -18,3 +18,4 @@ div_test/vivado_pid4256.str
 div_test/vivado.jou
 div_test/vivado.log
 *.zip
+miniRV_soc_pipeline/

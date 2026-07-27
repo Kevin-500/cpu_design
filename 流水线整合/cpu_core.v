@@ -191,7 +191,7 @@ module cpu_core(
 
     /***************************** EX *****************************/
 
-    //目前尚未处理内存相关的数据冒险,仅有ALU型冒险的前递逻辑
+    //数据冒险
     //按优先级排序
     assign alu_a    = alua_sel ? id_pc  
                     : (ld_st_ex_rs1_hazard ? ram_ext 
@@ -212,7 +212,7 @@ module cpu_core(
                     : rf_rd2))))));
     assign npc_offset = (ex_npc_op == `NPC_JALR) ? alu_c : ex_sext;
 
-    //非访存型数据冒险:假设数据来自于ALU计算结果或立即数
+    //RAW型数据冒险:数据来自于ALU计算结果或立即数或PC地址
     //分为EX冒险和MEM冒险和WB冒险,有EX则优先EX,就近原则
     //EX冒险判断条件:(三个条件参考计组流水线处理器章节)
     wire ex_rs1_hazard = ex_rf_we & (ex_wr != 5'b0) & (ex_wr == id_inst[19:15]);
@@ -237,8 +237,10 @@ module cpu_core(
                             | {32{wb_rf_wsel == `WB_EXT}} & wb_sext
                             | {32{wb_rf_wsel == `WB_PC4}} & (wb_pc + 32'h4);
 
-    //载入-使用型数据冒险:假设数据来自于写内存.
-    //由于暂停,需求数据的指令处在ID阶段时,上一条指令处在MEM阶段
+    //load-use型数据冒险:数据来自于写内存.
+    //由于暂停,需求数据的指令处在ID阶段时,前一条load指令处在MEM阶段,而其对应的wsel和we信号因暂停处于EX阶段,落后于wdata一个阶段
+    //因此虽然数据来源是MEM阶段的ram_ext,但仍按照wsel的位置归类为ex冒险
+    //mem和wb同理
     wire ld_st_ex_rs1_hazard = ex_rs1_hazard & ex_rf_wsel == `WB_RAM;
     wire ld_st_ex_rs2_hazard = ex_rs2_hazard & ex_rf_wsel == `WB_RAM;
 
