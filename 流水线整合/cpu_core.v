@@ -355,14 +355,6 @@ module cpu_core(
     reg [31:0] id_inst;
     //pc4由pc自然生成
     
-    //由于inst本身没有缓存功能,因此当ld_st_pause时额外用一个寄存器来寄存信号
-    reg [31:0] if_inst_pause;
-    always @ (posedge clk or posedge rst) begin
-        if (rst) if_inst_pause <= 32'h0;
-        else if (ifetch_valid & !wait_icache) if_inst_pause <= inst;
-    end
-
-    // wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
     wire [31:0] if_inst = inst;
 
     reg [31:0] if_inst_buf;
