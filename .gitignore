@@ -17,3 +17,4 @@ div_test/div_testbench_behav.wcfg
 div_test/vivado_pid4256.str
 div_test/vivado.jou
 div_test/vivado.log
+*.zip
