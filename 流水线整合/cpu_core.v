@@ -90,7 +90,7 @@ module cpu_core(
 
     // 流水线暂停时需要控制pc不变,即pc的输入npc为pc自身
     // pc_npc由于branch变为ex_pc,此时由于ICache正在读取指令,不会接受外部信号,导致branch信号被忽视
-    wire [31:0] pc_npc = (pause | !ifetch_valid) ? pc : npc;
+    wire [31:0] pc_npc = (pre_pause | pause | !ifetch_valid) ? pc : npc;
 
     // 原始逻辑:ex阶段判断需要branch时,pc信号生成后立刻传递给ICache
     // 加入Cache后的问题:此时Cache状态机还未恢复到IDLE,因此输入的信号会被无视
@@ -328,6 +328,8 @@ module cpu_core(
 //乘除法暂停时,EX/MEM寄存器的输入应当改为0,防止一直无限输入,乘除法一结束,数据尚未传到WB阶段,就已经激活了WB阶段的写回操作.
 //访存暂停时,ID/EX寄存器中数值清零,防止解除暂停后重复执行
     wire pause = mul_div_pause | ld_st_pause;
+// 在ID阶段的预暂停,负责提前暂停指令地址相关的数据,在流水线加入ICache后由于ICache时序原因,原本从ex阶段暂停会让pc错误停留在下下个指令地址处,漏掉一个指令.
+    wire pre_pause = is_mul_div | (ram_rop != 3'b0 | ram_wop != 4'b0);
     wire mul_div_done = !mul_div_busy & mul_div_busy_r;
     wire mul_div_pause = ex_mul_div & !mul_div_done;
     wire ld_st_done = daccess_rvalid | daccess_wresp;
@@ -357,9 +359,11 @@ module cpu_core(
     reg [31:0] if_inst_pause;
     always @ (posedge clk or posedge rst) begin
         if (rst) if_inst_pause <= 32'h0;
-        else if ((ifetch_valid & !wait_icache) & (ex_ram_rop | ex_ram_wop | (mul_div_pause & !mul_div_busy))) if_inst_pause <= inst;
+        else if (ifetch_valid & !wait_icache) if_inst_pause <= inst;
     end
-    wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
+
+    // wire [31:0] if_inst = (ld_st_done | mul_div_done) ? if_inst_pause : inst;
+    wire [31:0] if_inst = inst;
 
     reg [31:0] if_inst_buf;
     always @ (posedge clk or posedge rst) begin
@@ -395,7 +399,7 @@ module cpu_core(
         if (rst)         id_pc <= 32'h0;
         else if (branch) id_pc <= 32'h0;
         else if (pause)  id_pc <= id_pc;
-        else if (ifetch_valid_r) id_pc <= if_pc_r;
+        else if (ifetch_valid_r & !mul_div_done & !ld_st_done) id_pc <= if_pc_r;
         else             id_pc <= 32'h0;
     end
 
@@ -403,7 +407,7 @@ module cpu_core(
         if (rst)         id_inst <= 32'h0;
         else if (branch | branch_r) id_inst <= 32'h0;
         else if (pause)  id_inst <= id_inst;
-        else if (ifetch_valid_r) id_inst <= if_inst_buf;
+        else if (ifetch_valid_r & !mul_div_done & !ld_st_done) id_inst <= if_inst_buf;
         else             id_inst <= 32'h0;
     end
 
