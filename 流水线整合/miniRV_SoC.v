@@ -24,7 +24,7 @@ module miniRV_SoC (
 `endif
 
     // =====================================================
-    // AXI bus signals (cpu_top <-> axi_bridge)
+    // AXI bus signals from cpu_top
     // =====================================================
     wire [31:0] cpu_awaddr ;
     wire [ 7:0] cpu_awlen  ;
@@ -83,8 +83,199 @@ module miniRV_SoC (
     );
 
     // =====================================================
-    // axi_bridge (1 master -> N slaves)
+    // Slave 0: Main Memory (bram_axi) - individual signals
     // =====================================================
+    wire [31:0] bram_awaddr ;
+    wire [ 7:0] bram_awlen  ;
+    wire [ 2:0] bram_awsize ;
+    wire [ 1:0] bram_awburst;
+    wire        bram_awvalid;
+    wire        bram_awready;
+    wire [31:0] bram_wdata  ;
+    wire [ 3:0] bram_wstrb  ;
+    wire        bram_wlast  ;
+    wire        bram_wvalid ;
+    wire        bram_wready ;
+    wire        bram_bready ;
+    wire [ 1:0] bram_bresp  ;
+    wire        bram_bvalid ;
+    wire [31:0] bram_araddr ;
+    wire [ 7:0] bram_arlen  ;
+    wire [ 2:0] bram_arsize ;
+    wire [ 1:0] bram_arburst;
+    wire        bram_arvalid;
+    wire        bram_arready;
+    wire        bram_rready ;
+    wire [31:0] bram_rdata  ;
+    wire [ 1:0] bram_rresp  ;
+    wire        bram_rlast  ;
+    wire        bram_rvalid ;
+
+    // =====================================================
+    // Slave 1-5: Peripheral signals
+    // =====================================================
+    wire [31:0] sw_awaddr ;
+    wire [ 7:0] sw_awlen  ;
+    wire [ 2:0] sw_awsize ;
+    wire [ 1:0] sw_awburst;
+    wire        sw_awvalid;
+    wire        sw_awready;
+    wire [31:0] sw_wdata  ;
+    wire [ 3:0] sw_wstrb  ;
+    wire        sw_wlast  ;
+    wire        sw_wvalid ;
+    wire        sw_wready ;
+    wire        sw_bready ;
+    wire [ 1:0] sw_bresp  ;
+    wire        sw_bvalid ;
+    wire [31:0] sw_araddr ;
+    wire [ 7:0] sw_arlen  ;
+    wire [ 2:0] sw_arsize ;
+    wire [ 1:0] sw_arburst;
+    wire        sw_arvalid;
+    wire        sw_arready;
+    wire        sw_rready ;
+    wire [31:0] sw_rdata  ;
+    wire [ 1:0] sw_rresp  ;
+    wire        sw_rlast  ;
+    wire        sw_rvalid ;
+
+    wire [31:0] led_awaddr ;
+    wire [ 7:0] led_awlen  ;
+    wire [ 2:0] led_awsize ;
+    wire [ 1:0] led_awburst;
+    wire        led_awvalid;
+    wire        led_awready;
+    wire [31:0] led_wdata  ;
+    wire [ 3:0] led_wstrb  ;
+    wire        led_wlast  ;
+    wire        led_wvalid ;
+    wire        led_wready ;
+    wire        led_bready ;
+    wire [ 1:0] led_bresp  ;
+    wire        led_bvalid ;
+    wire [31:0] led_araddr ;
+    wire [ 7:0] led_arlen  ;
+    wire [ 2:0] led_arsize ;
+    wire [ 1:0] led_arburst;
+    wire        led_arvalid;
+    wire        led_arready;
+    wire        led_rready ;
+    wire [31:0] led_rdata  ;
+    wire [ 1:0] led_rresp  ;
+    wire        led_rlast  ;
+    wire        led_rvalid ;
+
+    wire [31:0] dig_awaddr ;
+    wire [ 7:0] dig_awlen  ;
+    wire [ 2:0] dig_awsize ;
+    wire [ 1:0] dig_awburst;
+    wire        dig_awvalid;
+    wire        dig_awready;
+    wire [31:0] dig_wdata  ;
+    wire [ 3:0] dig_wstrb  ;
+    wire        dig_wlast  ;
+    wire        dig_wvalid ;
+    wire        dig_wready ;
+    wire        dig_bready ;
+    wire [ 1:0] dig_bresp  ;
+    wire        dig_bvalid ;
+    wire [31:0] dig_araddr ;
+    wire [ 7:0] dig_arlen  ;
+    wire [ 2:0] dig_arsize ;
+    wire [ 1:0] dig_arburst;
+    wire        dig_arvalid;
+    wire        dig_arready;
+    wire        dig_rready ;
+    wire [31:0] dig_rdata  ;
+    wire [ 1:0] dig_rresp  ;
+    wire        dig_rlast  ;
+    wire        dig_rvalid ;
+
+    wire [31:0] uart_awaddr ;
+    wire [ 7:0] uart_awlen  ;
+    wire [ 2:0] uart_awsize ;
+    wire [ 1:0] uart_awburst;
+    wire        uart_awvalid;
+    wire        uart_awready;
+    wire [31:0] uart_wdata  ;
+    wire [ 3:0] uart_wstrb  ;
+    wire        uart_wlast  ;
+    wire        uart_wvalid ;
+    wire        uart_wready ;
+    wire        uart_bready ;
+    wire [ 1:0] uart_bresp  ;
+    wire        uart_bvalid ;
+    wire [31:0] uart_araddr ;
+    wire [ 7:0] uart_arlen  ;
+    wire [ 2:0] uart_arsize ;
+    wire [ 1:0] uart_arburst;
+    wire        uart_arvalid;
+    wire        uart_arready;
+    wire        uart_rready ;
+    wire [31:0] uart_rdata  ;
+    wire [ 1:0] uart_rresp  ;
+    wire        uart_rlast  ;
+    wire        uart_rvalid ;
+
+    wire [31:0] timer_awaddr ;
+    wire [ 7:0] timer_awlen  ;
+    wire [ 2:0] timer_awsize ;
+    wire [ 1:0] timer_awburst;
+    wire        timer_awvalid;
+    wire        timer_awready;
+    wire [31:0] timer_wdata  ;
+    wire [ 3:0] timer_wstrb  ;
+    wire        timer_wlast  ;
+    wire        timer_wvalid ;
+    wire        timer_wready ;
+    wire        timer_bready ;
+    wire [ 1:0] timer_bresp  ;
+    wire        timer_bvalid ;
+    wire [31:0] timer_araddr ;
+    wire [ 7:0] timer_arlen  ;
+    wire [ 2:0] timer_arsize ;
+    wire [ 1:0] timer_arburst;
+    wire        timer_arvalid;
+    wire        timer_arready;
+    wire        timer_rready ;
+    wire [31:0] timer_rdata  ;
+    wire [ 1:0] timer_rresp  ;
+    wire        timer_rlast  ;
+    wire        timer_rvalid ;
+
+    // =====================================================
+    // Conditional connection: RUN_TRACE vs. Normal
+    // =====================================================
+`ifdef RUN_TRACE
+    // ---------- Trace: cpu_top directly connected to bram_axi ----------
+    assign bram_awaddr  = cpu_awaddr ;
+    assign bram_awlen   = cpu_awlen  ;
+    assign bram_awsize  = cpu_awsize ;
+    assign bram_awburst = cpu_awburst;
+    assign bram_awvalid = cpu_awvalid;
+    assign cpu_awready  = bram_awready;
+    assign bram_wdata   = cpu_wdata  ;
+    assign bram_wstrb   = cpu_wstrb  ;
+    assign bram_wlast   = cpu_wlast  ;
+    assign bram_wvalid  = cpu_wvalid ;
+    assign cpu_wready   = bram_wready;
+    assign cpu_bresp    = bram_bresp ;
+    assign cpu_bvalid   = bram_bvalid;
+    assign bram_bready  = cpu_bready ;
+    assign bram_araddr  = cpu_araddr ;
+    assign bram_arlen   = cpu_arlen  ;
+    assign bram_arsize  = cpu_arsize ;
+    assign bram_arburst = cpu_arburst;
+    assign bram_arvalid = cpu_arvalid;
+    assign cpu_arready  = bram_arready;
+    assign bram_rready  = cpu_rready ;
+    assign cpu_rdata    = bram_rdata ;
+    assign cpu_rresp    = bram_rresp ;
+    assign cpu_rlast    = bram_rlast ;
+    assign cpu_rvalid   = bram_rvalid;
+`else
+    // ---------- Normal: cpu_top -> axi_bridge -> 6 slaves ----------
     localparam N = 6;
 
     wire [N*32-1:0] m_awaddr  ;
@@ -168,35 +359,110 @@ module miniRV_SoC (
         .m_axi_rready   (m_rready  )
     );
 
-    // =====================================================
-    // Slave 0: Main Memory (bram_axi)
-    // =====================================================
-    wire [31:0] bram_awaddr  = m_awaddr [0*32 +:32];
-    wire [ 7:0] bram_awlen   = m_awlen  [0* 8 +: 8];
-    wire [ 2:0] bram_awsize  = m_awsize [0* 3 +: 3];
-    wire [ 1:0] bram_awburst = m_awburst[0* 2 +: 2];
-    wire        bram_awvalid = m_awvalid[0];
-    wire        bram_awready;
-    wire [31:0] bram_wdata   = m_wdata  [0*32 +:32];
-    wire [ 3:0] bram_wstrb   = m_wstrb  [0* 4 +: 4];
-    wire        bram_wlast   = m_wlast  [0];
-    wire        bram_wvalid  = m_wvalid [0];
-    wire        bram_wready ;
-    wire        bram_bready  = m_bready [0];
-    wire [ 1:0] bram_bresp  ;
-    wire        bram_bvalid ;
-    wire [31:0] bram_araddr  = m_araddr [0*32 +:32];
-    wire [ 7:0] bram_arlen   = m_arlen  [0* 8 +: 8];
-    wire [ 2:0] bram_arsize  = m_arsize [0* 3 +: 3];
-    wire [ 1:0] bram_arburst = m_arburst[0* 2 +: 2];
-    wire        bram_arvalid = m_arvalid[0];
-    wire        bram_arready;
-    wire        bram_rready  = m_rready [0];
-    wire [31:0] bram_rdata  ;
-    wire [ 1:0] bram_rresp  ;
-    wire        bram_rlast  ;
-    wire        bram_rvalid ;
+    // Bridge outputs -> individual slave wires
+    assign bram_awaddr  = m_awaddr [0*32 +:32];
+    assign bram_awlen   = m_awlen  [0* 8 +: 8];
+    assign bram_awsize  = m_awsize [0* 3 +: 3];
+    assign bram_awburst = m_awburst[0* 2 +: 2];
+    assign bram_awvalid = m_awvalid[0];
+    assign bram_wdata   = m_wdata  [0*32 +:32];
+    assign bram_wstrb   = m_wstrb  [0* 4 +: 4];
+    assign bram_wlast   = m_wlast  [0];
+    assign bram_wvalid  = m_wvalid [0];
+    assign bram_bready  = m_bready [0];
+    assign bram_araddr  = m_araddr [0*32 +:32];
+    assign bram_arlen   = m_arlen  [0* 8 +: 8];
+    assign bram_arsize  = m_arsize [0* 3 +: 3];
+    assign bram_arburst = m_arburst[0* 2 +: 2];
+    assign bram_arvalid = m_arvalid[0];
+    assign bram_rready  = m_rready [0];
 
+    assign sw_awaddr  = m_awaddr [1*32 +:32];
+    assign sw_awlen   = m_awlen  [1* 8 +: 8];
+    assign sw_awsize  = m_awsize [1* 3 +: 3];
+    assign sw_awburst = m_awburst[1* 2 +: 2];
+    assign sw_awvalid = m_awvalid[1];
+    assign sw_wdata   = m_wdata  [1*32 +:32];
+    assign sw_wstrb   = m_wstrb  [1* 4 +: 4];
+    assign sw_wlast   = m_wlast  [1];
+    assign sw_wvalid  = m_wvalid [1];
+    assign sw_bready  = m_bready [1];
+    assign sw_araddr  = m_araddr [1*32 +:32];
+    assign sw_arlen   = m_arlen  [1* 8 +: 8];
+    assign sw_arsize  = m_arsize [1* 3 +: 3];
+    assign sw_arburst = m_arburst[1* 2 +: 2];
+    assign sw_arvalid = m_arvalid[1];
+    assign sw_rready  = m_rready [1];
+
+    assign led_awaddr  = m_awaddr [2*32 +:32];
+    assign led_awlen   = m_awlen  [2* 8 +: 8];
+    assign led_awsize  = m_awsize [2* 3 +: 3];
+    assign led_awburst = m_awburst[2* 2 +: 2];
+    assign led_awvalid = m_awvalid[2];
+    assign led_wdata   = m_wdata  [2*32 +:32];
+    assign led_wstrb   = m_wstrb  [2* 4 +: 4];
+    assign led_wlast   = m_wlast  [2];
+    assign led_wvalid  = m_wvalid [2];
+    assign led_bready  = m_bready [2];
+    assign led_araddr  = m_araddr [2*32 +:32];
+    assign led_arlen   = m_arlen  [2* 8 +: 8];
+    assign led_arsize  = m_arsize [2* 3 +: 3];
+    assign led_arburst = m_arburst[2* 2 +: 2];
+    assign led_arvalid = m_arvalid[2];
+    assign led_rready  = m_rready [2];
+
+    assign dig_awaddr  = m_awaddr [3*32 +:32];
+    assign dig_awlen   = m_awlen  [3* 8 +: 8];
+    assign dig_awsize  = m_awsize [3* 3 +: 3];
+    assign dig_awburst = m_awburst[3* 2 +: 2];
+    assign dig_awvalid = m_awvalid[3];
+    assign dig_wdata   = m_wdata  [3*32 +:32];
+    assign dig_wstrb   = m_wstrb  [3* 4 +: 4];
+    assign dig_wlast   = m_wlast  [3];
+    assign dig_wvalid  = m_wvalid [3];
+    assign dig_bready  = m_bready [3];
+    assign dig_araddr  = m_araddr [3*32 +:32];
+    assign dig_arlen   = m_arlen  [3* 8 +: 8];
+    assign dig_arsize  = m_arsize [3* 3 +: 3];
+    assign dig_arburst = m_arburst[3* 2 +: 2];
+    assign dig_arvalid = m_arvalid[3];
+    assign dig_rready  = m_rready [3];
+
+    assign uart_awaddr  = m_awaddr [4*32 +:32];
+    assign uart_awlen   = m_awlen  [4* 8 +: 8];
+    assign uart_awsize  = m_awsize [4* 3 +: 3];
+    assign uart_awburst = m_awburst[4* 2 +: 2];
+    assign uart_awvalid = m_awvalid[4];
+    assign uart_wdata   = m_wdata  [4*32 +:32];
+    assign uart_wstrb   = m_wstrb  [4* 4 +: 4];
+    assign uart_wlast   = m_wlast  [4];
+    assign uart_wvalid  = m_wvalid [4];
+    assign uart_bready  = m_bready [4];
+    assign uart_araddr  = m_araddr [4*32 +:32];
+    assign uart_arlen   = m_arlen  [4* 8 +: 8];
+    assign uart_arsize  = m_arsize [4* 3 +: 3];
+    assign uart_arburst = m_arburst[4* 2 +: 2];
+    assign uart_arvalid = m_arvalid[4];
+    assign uart_rready  = m_rready [4];
+
+    assign timer_awaddr  = m_awaddr [5*32 +:32];
+    assign timer_awlen   = m_awlen  [5* 8 +: 8];
+    assign timer_awsize  = m_awsize [5* 3 +: 3];
+    assign timer_awburst = m_awburst[5* 2 +: 2];
+    assign timer_awvalid = m_awvalid[5];
+    assign timer_wdata   = m_wdata  [5*32 +:32];
+    assign timer_wstrb   = m_wstrb  [5* 4 +: 4];
+    assign timer_wlast   = m_wlast  [5];
+    assign timer_wvalid  = m_wvalid [5];
+    assign timer_bready  = m_bready [5];
+    assign timer_araddr  = m_araddr [5*32 +:32];
+    assign timer_arlen   = m_arlen  [5* 8 +: 8];
+    assign timer_arsize  = m_arsize [5* 3 +: 3];
+    assign timer_arburst = m_arburst[5* 2 +: 2];
+    assign timer_arvalid = m_arvalid[5];
+    assign timer_rready  = m_rready [5];
+
+    // Slave response feedback to bridge
     assign m_awready[0]      = bram_awready;
     assign m_wready [0]      = bram_wready ;
     assign m_bresp  [0*2 +:2] = bram_bresp  ;
@@ -207,6 +473,60 @@ module miniRV_SoC (
     assign m_rlast  [0]      = bram_rlast  ;
     assign m_rvalid [0]      = bram_rvalid ;
 
+    assign m_awready[1]      = sw_awready;
+    assign m_wready [1]      = sw_wready ;
+    assign m_bresp  [1*2 +:2] = sw_bresp  ;
+    assign m_bvalid [1]      = sw_bvalid ;
+    assign m_arready[1]      = sw_arready;
+    assign m_rdata  [1*32 +:32] = sw_rdata  ;
+    assign m_rresp  [1*2 +:2]   = sw_rresp  ;
+    assign m_rlast  [1]      = sw_rlast  ;
+    assign m_rvalid [1]      = sw_rvalid ;
+
+    assign m_awready[2]      = led_awready;
+    assign m_wready [2]      = led_wready ;
+    assign m_bresp  [2*2 +:2] = led_bresp  ;
+    assign m_bvalid [2]      = led_bvalid ;
+    assign m_arready[2]      = led_arready;
+    assign m_rdata  [2*32 +:32] = led_rdata  ;
+    assign m_rresp  [2*2 +:2]   = led_rresp  ;
+    assign m_rlast  [2]      = led_rlast  ;
+    assign m_rvalid [2]      = led_rvalid ;
+
+    assign m_awready[3]      = dig_awready;
+    assign m_wready [3]      = dig_wready ;
+    assign m_bresp  [3*2 +:2] = dig_bresp  ;
+    assign m_bvalid [3]      = dig_bvalid ;
+    assign m_arready[3]      = dig_arready;
+    assign m_rdata  [3*32 +:32] = dig_rdata  ;
+    assign m_rresp  [3*2 +:2]   = dig_rresp  ;
+    assign m_rlast  [3]      = dig_rlast  ;
+    assign m_rvalid [3]      = dig_rvalid ;
+
+    assign m_awready[4]      = uart_awready;
+    assign m_wready [4]      = uart_wready ;
+    assign m_bresp  [4*2 +:2] = uart_bresp  ;
+    assign m_bvalid [4]      = uart_bvalid ;
+    assign m_arready[4]      = uart_arready;
+    assign m_rdata  [4*32 +:32] = uart_rdata  ;
+    assign m_rresp  [4*2 +:2]   = uart_rresp  ;
+    assign m_rlast  [4]      = uart_rlast  ;
+    assign m_rvalid [4]      = uart_rvalid ;
+
+    assign m_awready[5]      = timer_awready;
+    assign m_wready [5]      = timer_wready ;
+    assign m_bresp  [5*2 +:2] = timer_bresp  ;
+    assign m_bvalid [5]      = timer_bvalid ;
+    assign m_arready[5]      = timer_arready;
+    assign m_rdata  [5*32 +:32] = timer_rdata  ;
+    assign m_rresp  [5*2 +:2]   = timer_rresp  ;
+    assign m_rlast  [5]      = timer_rlast  ;
+    assign m_rvalid [5]      = timer_rvalid ;
+`endif
+
+    // =====================================================
+    // Main Memory (always instantiated)
+    // =====================================================
     bram_axi U_bram (
         .s_aclk         (sys_clk),
         .s_aresetn      (!sys_rst),
@@ -242,47 +562,12 @@ module miniRV_SoC (
     );
 
     // =====================================================
-    // Slave 1: Switch
+    // Peripherals (only for non-Trace, i.e. Vivado synthesis)
     // =====================================================
-    wire [31:0] sw_awaddr  = m_awaddr [1*32 +:32];
-    wire [ 7:0] sw_awlen   = m_awlen  [1* 8 +: 8];
-    wire [ 2:0] sw_awsize  = m_awsize [1* 3 +: 3];
-    wire [ 1:0] sw_awburst = m_awburst[1* 2 +: 2];
-    wire        sw_awvalid = m_awvalid[1];
-    wire        sw_awready;
-    wire [31:0] sw_wdata   = m_wdata  [1*32 +:32];
-    wire [ 3:0] sw_wstrb   = m_wstrb  [1* 4 +: 4];
-    wire        sw_wlast   = m_wlast  [1];
-    wire        sw_wvalid  = m_wvalid [1];
-    wire        sw_wready ;
-    wire        sw_bready  = m_bready [1];
-    wire [ 1:0] sw_bresp  ;
-    wire        sw_bvalid ;
-    wire [31:0] sw_araddr  = m_araddr [1*32 +:32];
-    wire [ 7:0] sw_arlen   = m_arlen  [1* 8 +: 8];
-    wire [ 2:0] sw_arsize  = m_arsize [1* 3 +: 3];
-    wire [ 1:0] sw_arburst = m_arburst[1* 2 +: 2];
-    wire        sw_arvalid = m_arvalid[1];
-    wire        sw_arready;
-    wire        sw_rready  = m_rready [1];
-    wire [31:0] sw_rdata  ;
-    wire [ 1:0] sw_rresp  ;
-    wire        sw_rlast  ;
-    wire        sw_rvalid ;
-
-    assign m_awready[1]      = sw_awready;
-    assign m_wready [1]      = sw_wready ;
-    assign m_bresp  [1*2 +:2] = sw_bresp  ;
-    assign m_bvalid [1]      = sw_bvalid ;
-    assign m_arready[1]      = sw_arready;
-    assign m_rdata  [1*32 +:32] = sw_rdata  ;
-    assign m_rresp  [1*2 +:2]   = sw_rresp  ;
-    assign m_rlast  [1]      = sw_rlast  ;
-    assign m_rvalid [1]      = sw_rvalid ;
-
+`ifndef RUN_TRACE
     switch_wrap U_switch (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
+        .aclk           (sys_clk),
+        .aresetn        (!sys_rst),
         .s_axi_awaddr   (sw_awaddr ),
         .s_axi_awlen    (sw_awlen  ),
         .s_axi_awsize   (sw_awsize ),
@@ -311,48 +596,9 @@ module miniRV_SoC (
         .switch_i       (sw)
     );
 
-    // =====================================================
-    // Slave 2: LED
-    // =====================================================
-    wire [31:0] led_awaddr  = m_awaddr [2*32 +:32];
-    wire [ 7:0] led_awlen   = m_awlen  [2* 8 +: 8];
-    wire [ 2:0] led_awsize  = m_awsize [2* 3 +: 3];
-    wire [ 1:0] led_awburst = m_awburst[2* 2 +: 2];
-    wire        led_awvalid = m_awvalid[2];
-    wire        led_awready;
-    wire [31:0] led_wdata   = m_wdata  [2*32 +:32];
-    wire [ 3:0] led_wstrb   = m_wstrb  [2* 4 +: 4];
-    wire        led_wlast   = m_wlast  [2];
-    wire        led_wvalid  = m_wvalid [2];
-    wire        led_wready ;
-    wire        led_bready  = m_bready [2];
-    wire [ 1:0] led_bresp  ;
-    wire        led_bvalid ;
-    wire [31:0] led_araddr  = m_araddr [2*32 +:32];
-    wire [ 7:0] led_arlen   = m_arlen  [2* 8 +: 8];
-    wire [ 2:0] led_arsize  = m_arsize [2* 3 +: 3];
-    wire [ 1:0] led_arburst = m_arburst[2* 2 +: 2];
-    wire        led_arvalid = m_arvalid[2];
-    wire        led_arready;
-    wire        led_rready  = m_rready [2];
-    wire [31:0] led_rdata  ;
-    wire [ 1:0] led_rresp  ;
-    wire        led_rlast  ;
-    wire        led_rvalid ;
-
-    assign m_awready[2]      = led_awready;
-    assign m_wready [2]      = led_wready ;
-    assign m_bresp  [2*2 +:2] = led_bresp  ;
-    assign m_bvalid [2]      = led_bvalid ;
-    assign m_arready[2]      = led_arready;
-    assign m_rdata  [2*32 +:32] = led_rdata  ;
-    assign m_rresp  [2*2 +:2]   = led_rresp  ;
-    assign m_rlast  [2]      = led_rlast  ;
-    assign m_rvalid [2]      = led_rvalid ;
-
     led_wrap U_led (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
+        .aclk           (sys_clk),
+        .aresetn        (!sys_rst),
         .s_axi_awaddr   (led_awaddr ),
         .s_axi_awlen    (led_awlen  ),
         .s_axi_awsize   (led_awsize ),
@@ -381,48 +627,9 @@ module miniRV_SoC (
         .led_o          (led)
     );
 
-    // =====================================================
-    // Slave 3: Digital Tube
-    // =====================================================
-    wire [31:0] dig_awaddr  = m_awaddr [3*32 +:32];
-    wire [ 7:0] dig_awlen   = m_awlen  [3* 8 +: 8];
-    wire [ 2:0] dig_awsize  = m_awsize [3* 3 +: 3];
-    wire [ 1:0] dig_awburst = m_awburst[3* 2 +: 2];
-    wire        dig_awvalid = m_awvalid[3];
-    wire        dig_awready;
-    wire [31:0] dig_wdata   = m_wdata  [3*32 +:32];
-    wire [ 3:0] dig_wstrb   = m_wstrb  [3* 4 +: 4];
-    wire        dig_wlast   = m_wlast  [3];
-    wire        dig_wvalid  = m_wvalid [3];
-    wire        dig_wready ;
-    wire        dig_bready  = m_bready [3];
-    wire [ 1:0] dig_bresp  ;
-    wire        dig_bvalid ;
-    wire [31:0] dig_araddr  = m_araddr [3*32 +:32];
-    wire [ 7:0] dig_arlen   = m_arlen  [3* 8 +: 8];
-    wire [ 2:0] dig_arsize  = m_arsize [3* 3 +: 3];
-    wire [ 1:0] dig_arburst = m_arburst[3* 2 +: 2];
-    wire        dig_arvalid = m_arvalid[3];
-    wire        dig_arready;
-    wire        dig_rready  = m_rready [3];
-    wire [31:0] dig_rdata  ;
-    wire [ 1:0] dig_rresp  ;
-    wire        dig_rlast  ;
-    wire        dig_rvalid ;
-
-    assign m_awready[3]      = dig_awready;
-    assign m_wready [3]      = dig_wready ;
-    assign m_bresp  [3*2 +:2] = dig_bresp  ;
-    assign m_bvalid [3]      = dig_bvalid ;
-    assign m_arready[3]      = dig_arready;
-    assign m_rdata  [3*32 +:32] = dig_rdata  ;
-    assign m_rresp  [3*2 +:2]   = dig_rresp  ;
-    assign m_rlast  [3]      = dig_rlast  ;
-    assign m_rvalid [3]      = dig_rvalid ;
-
     digled_wrap U_dig (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
+        .aclk           (sys_clk),
+        .aresetn        (!sys_rst),
         .s_axi_awaddr   (dig_awaddr ),
         .s_axi_awlen    (dig_awlen  ),
         .s_axi_awsize   (dig_awsize ),
@@ -453,48 +660,9 @@ module miniRV_SoC (
         .dig_seg1       (dig_seg1)
     );
 
-    // =====================================================
-    // Slave 4: UART
-    // =====================================================
-    wire [31:0] uart_awaddr  = m_awaddr [4*32 +:32];
-    wire [ 7:0] uart_awlen   = m_awlen  [4* 8 +: 8];
-    wire [ 2:0] uart_awsize  = m_awsize [4* 3 +: 3];
-    wire [ 1:0] uart_awburst = m_awburst[4* 2 +: 2];
-    wire        uart_awvalid = m_awvalid[4];
-    wire        uart_awready;
-    wire [31:0] uart_wdata   = m_wdata  [4*32 +:32];
-    wire [ 3:0] uart_wstrb   = m_wstrb  [4* 4 +: 4];
-    wire        uart_wlast   = m_wlast  [4];
-    wire        uart_wvalid  = m_wvalid [4];
-    wire        uart_wready ;
-    wire        uart_bready  = m_bready [4];
-    wire [ 1:0] uart_bresp  ;
-    wire        uart_bvalid ;
-    wire [31:0] uart_araddr  = m_araddr [4*32 +:32];
-    wire [ 7:0] uart_arlen   = m_arlen  [4* 8 +: 8];
-    wire [ 2:0] uart_arsize  = m_arsize [4* 3 +: 3];
-    wire [ 1:0] uart_arburst = m_arburst[4* 2 +: 2];
-    wire        uart_arvalid = m_arvalid[4];
-    wire        uart_arready;
-    wire        uart_rready  = m_rready [4];
-    wire [31:0] uart_rdata  ;
-    wire [ 1:0] uart_rresp  ;
-    wire        uart_rlast  ;
-    wire        uart_rvalid ;
-
-    assign m_awready[4]      = uart_awready;
-    assign m_wready [4]      = uart_wready ;
-    assign m_bresp  [4*2 +:2] = uart_bresp  ;
-    assign m_bvalid [4]      = uart_bvalid ;
-    assign m_arready[4]      = uart_arready;
-    assign m_rdata  [4*32 +:32] = uart_rdata  ;
-    assign m_rresp  [4*2 +:2]   = uart_rresp  ;
-    assign m_rlast  [4]      = uart_rlast  ;
-    assign m_rvalid [4]      = uart_rvalid ;
-
     uart_wrap U_uart (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
+        .aclk           (sys_clk),
+        .aresetn        (!sys_rst),
         .s_axi_awaddr   (uart_awaddr ),
         .s_axi_awlen    (uart_awlen  ),
         .s_axi_awsize   (uart_awsize ),
@@ -524,48 +692,9 @@ module miniRV_SoC (
         .tx             (tx)
     );
 
-    // =====================================================
-    // Slave 5: Timer
-    // =====================================================
-    wire [31:0] timer_awaddr  = m_awaddr [5*32 +:32];
-    wire [ 7:0] timer_awlen   = m_awlen  [5* 8 +: 8];
-    wire [ 2:0] timer_awsize  = m_awsize [5* 3 +: 3];
-    wire [ 1:0] timer_awburst = m_awburst[5* 2 +: 2];
-    wire        timer_awvalid = m_awvalid[5];
-    wire        timer_awready;
-    wire [31:0] timer_wdata   = m_wdata  [5*32 +:32];
-    wire [ 3:0] timer_wstrb   = m_wstrb  [5* 4 +: 4];
-    wire        timer_wlast   = m_wlast  [5];
-    wire        timer_wvalid  = m_wvalid [5];
-    wire        timer_wready ;
-    wire        timer_bready  = m_bready [5];
-    wire [ 1:0] timer_bresp  ;
-    wire        timer_bvalid ;
-    wire [31:0] timer_araddr  = m_araddr [5*32 +:32];
-    wire [ 7:0] timer_arlen   = m_arlen  [5* 8 +: 8];
-    wire [ 2:0] timer_arsize  = m_arsize [5* 3 +: 3];
-    wire [ 1:0] timer_arburst = m_arburst[5* 2 +: 2];
-    wire        timer_arvalid = m_arvalid[5];
-    wire        timer_arready;
-    wire        timer_rready  = m_rready [5];
-    wire [31:0] timer_rdata  ;
-    wire [ 1:0] timer_rresp  ;
-    wire        timer_rlast  ;
-    wire        timer_rvalid ;
-
-    assign m_awready[5]      = timer_awready;
-    assign m_wready [5]      = timer_wready ;
-    assign m_bresp  [5*2 +:2] = timer_bresp  ;
-    assign m_bvalid [5]      = timer_bvalid ;
-    assign m_arready[5]      = timer_arready;
-    assign m_rdata  [5*32 +:32] = timer_rdata  ;
-    assign m_rresp  [5*2 +:2]   = timer_rresp  ;
-    assign m_rlast  [5]      = timer_rlast  ;
-    assign m_rvalid [5]      = timer_rvalid ;
-
     timer_wrap U_timer (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
+        .aclk           (sys_clk),
+        .aresetn        (!sys_rst),
         .s_axi_awaddr   (timer_awaddr ),
         .s_axi_awlen    (timer_awlen  ),
         .s_axi_awsize   (timer_awsize ),
@@ -592,5 +721,6 @@ module miniRV_SoC (
         .s_axi_rvalid   (timer_rvalid ),
         .s_axi_rready   (timer_rready )
     );
+`endif
 
 endmodule
