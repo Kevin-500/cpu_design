@@ -1,16 +1,8 @@
 `timescale 1ns / 1ps
 
-`ifdef RUN_TRACE
-`define SOC_DEFAULT_WORDS 2052
-`else
-`define SOC_DEFAULT_WORDS 131072
-`endif
 `define TCONN(I) .s_axi_awaddr(mawaddr[(I)*32 +:32]),.s_axi_awlen(mawlen[(I)*8 +:8]),.s_axi_awsize(mawsize[(I)*3 +:3]),.s_axi_awburst(mawburst[(I)*2 +:2]),.s_axi_awvalid(mawvalid[I]),.s_axi_awready(mawready[I]),.s_axi_wdata(mwdata[(I)*32 +:32]),.s_axi_wstrb(mwstrb[(I)*4 +:4]),.s_axi_wlast(mwlast[I]),.s_axi_wvalid(mwvalid[I]),.s_axi_wready(mwready[I]),.s_axi_bresp(mbresp[(I)*2 +:2]),.s_axi_bvalid(mbvalid[I]),.s_axi_bready(mbready[I]),.s_axi_araddr(maraddr[(I)*32 +:32]),.s_axi_arlen(marlen[(I)*8 +:8]),.s_axi_arsize(marsize[(I)*3 +:3]),.s_axi_arburst(marburst[(I)*2 +:2]),.s_axi_arvalid(marvalid[I]),.s_axi_arready(marready[I]),.s_axi_rdata(mrdata[(I)*32 +:32]),.s_axi_rresp(mrresp[(I)*2 +:2]),.s_axi_rlast(mrlast[I]),.s_axi_rvalid(mrvalid[I]),.s_axi_rready(mrready[I])
 
-module miniRV_SoC #(
-    parameter MEM_INIT_FILE = "docs/lab2/miniRV_basic/src/coe/lw.mem",
-    parameter integer MEM_WORDS = `SOC_DEFAULT_WORDS
-) (
+module miniRV_SoC (
     input  wire         fpga_clk,
     input  wire         fpga_rst,
     input  wire [15:0]  sw,
@@ -157,34 +149,7 @@ module miniRV_SoC #(
         .m_axi_rready   (mrready)
     );
 
-`ifdef RUN_TRACE
-  `ifdef TRACE_USE_AXI_BRAM_MODEL
-    axi_bram #(
-        .WORDS      (MEM_WORDS),
-        .INIT_FILE  (MEM_INIT_FILE)
-    ) U_bram (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
-        `TCONN(0)
-    );
-  `else
-    bram_axi U_bram (
-        .s_aclk         (sys_clk),
-        .s_aresetn      (!sys_rst),
-        .s_axi_awid     (4'h0),
-        .s_axi_awlock   (1'b0),
-        .s_axi_awcache  (4'h0),
-        .s_axi_awprot   (3'h0),
-        `TCONN(0),
-        .s_axi_bid      (),
-        .s_axi_arid     (4'h0),
-        .s_axi_arlock   (1'b0),
-        .s_axi_arcache  (4'h0),
-        .s_axi_arprot   (3'h0),
-        .s_axi_rid      ()
-    );
-  `endif
-`elsif USE_VIVADO_BRAM_AXI
+    // Main Memory (slave 0)
     bram_axi U_bram (
         .s_aclk         (sys_clk),
         .s_aresetn      (!sys_rst),
@@ -194,16 +159,6 @@ module miniRV_SoC #(
         .s_axi_arid     (4'h0),
         .s_axi_rid      ()
     );
-`else
-    axi_bram #(
-        .WORDS      (MEM_WORDS),
-        .INIT_FILE  (MEM_INIT_FILE)
-    ) U_bram (
-        .aclk       (sys_clk),
-        .aresetn    (!sys_rst),
-        `TCONN(0)
-    );
-`endif
 
     // Peripheral: Switch (slave 1)
     switch_wrap U_switch (
@@ -249,4 +204,3 @@ module miniRV_SoC #(
 
 endmodule
 `undef TCONN
-`undef SOC_DEFAULT_WORDS
