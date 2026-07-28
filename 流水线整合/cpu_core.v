@@ -74,7 +74,20 @@ module cpu_core(
 
     /***************************** IF *****************************/
 
-    assign ifetch_req = 1'b1;//取值请求信号,假设一直有效
+    reg rst_r;
+    wire first_req = rst_r & !cpu_rst;
+    always @(posedge cpu_clk) rst_r <= cpu_rst;
+
+    reg ifetch_done;
+    always @ (posedge cpu_clk or posedge cpu_rst) begin
+        if (cpu_rst) ifetch_done <= 1'b0;
+        else         ifetch_done <= ifetch_valid;
+    end
+    
+    assign ifetch_req = ifetch_done | first_req;//取值请求信号
+    //只在ifetch_valid有效后才请求(即ifetch_done)
+    
+
     assign ifetch_addr = pc; //取值地址
 
     // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
