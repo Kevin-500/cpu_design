@@ -44,7 +44,6 @@ module cpu_core(
     wire        is_mul;
     wire        is_div;
     wire        is_mul_div;
-    // reg         mul_div_flag;       // 乘除法运算的标志位信号
 
     // Register File
     wire [31:0] rf_rd1;
@@ -81,7 +80,7 @@ module cpu_core(
     // 跳转信号高位时pc需要选用ex阶段的pc,跳转信号为低位时继续用if阶段的pc
     // 分支预测默认不跳转,若B型指令br为0则不需要重复跳转.
     // 假如跳转后pc与当前pc一致,则同样不需要跳转,如offset=4时,跳转地址=pc4地址.
-    //TODO:在不考虑多周期指令的情况下,目前branch可以兼做flush_pipeline信号清除IF/ID和ID/EX流水线寄存器.
+    // 当前需求下,branch可以兼做flush_pipeline信号清除IF/ID和ID/EX流水线寄存器.
     wire branch = (ex_npc_op == `NPC_JALR & {alu_c[31:1], 1'b0} != id_pc)
                 | (ex_npc_op == `NPC_JMP & ex_sext != 32'h4)
                 | (ex_npc_op == `NPC_BRA & br & ex_sext != 32'h4);
@@ -104,7 +103,7 @@ module cpu_core(
         else if (ifetch_valid) wait_icache <= 1'b0;
     end
 
-    // 表示
+    // 用于保存下一条指令地址
     reg [31:0] pc_wait_icache;
     always @ (posedge clk or posedge rst) begin
         if (rst) pc_wait_icache <= 32'h0;
@@ -130,7 +129,7 @@ module cpu_core(
         .clk        (cpu_clk),
         .rst        (cpu_rst),
         .npc        (pc_npc),
-        .fetch      (1'b1),    //fetch原本用于在单周期cpu中确定指令是否执行完毕,而在流水线cpu中,指令是否执行完毕与pc是否步进无关,因此改为1'b1
+        .fetch      (1'b1),    // fetch原本用于在单周期cpu中确定指令是否执行完毕,而在流水线cpu中,指令是否执行完毕与pc是否步进无关,因此改为1'b1
         .pc         (pc_pc)
     );
     
@@ -138,7 +137,7 @@ module cpu_core(
     // 在单周期cpu中,按照约定的时序，ifetch_inst只在ifetch_valid有效时有效，且它们仅有效1个时钟.
     // 在流水线cpu中,让ifetch_req持续为1,ifetch_inst和ifetch_valid持续有效,
     // 但是读到的指令是否会被传递到下游流水线中由其他信号决定(pause和控制信号等)
-    //不再使用NOP指令填补空缺
+    // 不再使用NOP指令填补空缺
     assign inst = ifetch_inst;
 
     Controller U_CU (
@@ -314,8 +313,6 @@ module cpu_core(
     //假设wR信号随着流水线自然传递到WB阶段,不需要额外的寄存器
     assign rf_wR  = wb_wr;
 
-
-    //TODO: wD选择的流水线化未完成
     always @(*) begin
         rf_wD = wb_wd;
     end
@@ -586,7 +583,6 @@ module cpu_core(
     end
 
 // MEM/WB
-    // reg [31:0] wb_mext;
     reg [31:0] wb_pc;
     reg [31:0] wb_alu_c;
     reg [31:0] wb_sext;
@@ -632,10 +628,9 @@ module cpu_core(
     end
 
     //对于wb_rf_we,假如是访存指令,则等到访存结束再接受上级流水线信号,其他指令则直接接受
-    //保证了只要是传递到wb阶段的we信号,就一定是有效的wb信号,不再需要进行额外的判断,直接传入寄存器即可.
+    //保证了只要是传递到wb阶段的we信号,就一定是有效的wb信号,直接传入寄存器堆即可.
     always @ (posedge clk or posedge rst) begin
         if (rst) wb_rf_we <= 1'b0;
-        // if (is_ld_st | ld_st_flag) wb_rf_we <= ld_st_done ? mem_rf_we : 1'b0;
         if (is_ld_st | ld_st_flag) wb_rf_we <= 1'b0;
         else     wb_rf_we <= mem_rf_we;
     end
