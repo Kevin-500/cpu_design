@@ -40,7 +40,7 @@ module ICache (
                (tags[req_addr[9:4]] == req_addr[31:10]);
 
     cache_line_ram U_data (
-        .clk(cpu_clk), .we(refill_we), .addr(ram_addr),
+        .clk(cpu_clk), .rst(cpu_rst), .we(refill_we), .addr(ram_addr),
         .wdata(refill_line), .rdata(line_rdata)
     );
 

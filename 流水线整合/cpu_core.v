@@ -536,9 +536,9 @@ module cpu_core(
 
     //ram相关指令进入EX/MEM寄存器后只保留一个周期,因此需要单独用一个寄存器持久化保存rop信号供MEXT使用
     reg [2:0] mem_ram_rop_r;
-    always @ (*) begin
-        if (rst) mem_ram_rop_r = 3'b0;
-        else if (mem_ram_rop != 3'b0) mem_ram_rop_r = mem_ram_rop;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) mem_ram_rop_r <= 3'b0;
+        else if (mem_ram_rop != 3'b0) mem_ram_rop_r <= mem_ram_rop;
     end
 
     always @ (posedge clk or posedge rst) begin

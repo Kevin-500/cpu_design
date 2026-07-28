@@ -59,7 +59,7 @@ module DCache (
     wire [127:0] cache_wdata = refill_we ? refill_line : updated_line;
 
     cache_line_ram U_data (
-        .clk(cpu_clk), .we(cache_we), .addr(ram_addr),
+        .clk(cpu_clk), .rst(cpu_rst), .we(cache_we), .addr(ram_addr),
         .wdata(cache_wdata), .rdata(line_rdata)
     );
 
