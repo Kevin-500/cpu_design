@@ -208,6 +208,9 @@ module sort_sim_tb;
             $display("      Override with +IMAGE=<file.mem>");
         end
 
+        // Zero-initialize all memory (avoid X propagation)
+        for (i = 0; i < 65536; i = i + 1) memory[i] = 0;
+
         // Load program into memory
         $readmemh(prog_file, memory);
 
