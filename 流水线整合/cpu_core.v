@@ -442,7 +442,7 @@ module cpu_core(
     always @ (posedge clk or posedge rst) begin
         if (rst)         ex_ram_wop <= 4'b0;
         else if (branch) ex_ram_wop <= 4'b0;
-        else if (mul_div_pause)  ex_ram_wop <= ex_ram_rop;
+        else if (mul_div_pause)  ex_ram_wop <= ex_ram_wop;
         else if (ld_st_pause) ex_ram_wop <= 4'b0;
         else             ex_ram_wop <= ram_wop;
     end
@@ -631,7 +631,7 @@ module cpu_core(
     //保证了只要是传递到wb阶段的we信号,就一定是有效的wb信号,直接传入寄存器堆即可.
     always @ (posedge clk or posedge rst) begin
         if (rst) wb_rf_we <= 1'b0;
-        if (is_ld_st | ld_st_flag) wb_rf_we <= 1'b0;
+        else if (is_ld_st | ld_st_flag) wb_rf_we <= 1'b0;
         else     wb_rf_we <= mem_rf_we;
     end
 
